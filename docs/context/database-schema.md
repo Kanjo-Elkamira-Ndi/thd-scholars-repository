@@ -73,8 +73,8 @@ Metadata for every item posted to the channel through the system (content posted
 |---|---|---|
 | `id` | `uuid` PK | |
 | `title` | `text` | not null |
-| `discipline_tag` | `text` | not null — e.g. `SystematicTheology` |
-| `format_tag` | `text` | not null, CHECK against content_format list |
+| `discipline_tag` | `text` | not null — e.g. `SystematicTheology`; canonical list is `DISCIPLINE_TAGS` in `packages/shared` (no DB CHECK) |
+| `format_tag` | `text` | not null, CHECK against content_format list — must match `CONTENT_FORMATS` in `packages/shared` |
 | `cohort_tag` | `smallint` | nullable — some content isn't cohort-specific |
 | `posted_by` | `uuid` FK → `users.id` | not null |
 | `telegram_message_id` | `bigint` | nullable until the bot confirms the post |

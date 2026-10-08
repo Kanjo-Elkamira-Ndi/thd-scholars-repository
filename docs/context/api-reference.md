@@ -101,11 +101,13 @@ Paginated audit log viewer.
 - **Query params:** `action`, `actorUserId`, `targetType`, `page`, `pageSize`.
 
 ### `GET /api/settings`
-Current system configuration (ID regex pattern, available cohort years, invite link expiry duration).
+Current system configuration.
+- **Response:** `{ settings: SystemSettings }` — `{ registrationIdPattern: string, availableCohortYears: number[], inviteLinkExpirySeconds: number }` (shapes defined in `packages/shared` as `SystemSettings`).
 - **Auth:** Admin.
 
 ### `PATCH /api/settings`
 Update system configuration.
+- **Body:** any subset of `SystemSettings`; at least one field required (validated by `settingsUpdateSchema` in `packages/shared`). `registrationIdPattern` must be a valid regular expression.
 - **Auth:** Admin.
 
 ### `GET /api/dashboard/stats`

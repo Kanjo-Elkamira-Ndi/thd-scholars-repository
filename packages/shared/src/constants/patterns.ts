@@ -1,0 +1,1 @@
+export const DEFAULT_REGISTRATION_ID_REGEX = '^DIBI-THD-\\d{4}$';
