@@ -4,9 +4,15 @@
   "private": true,
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "migrate": "tsc -p tsconfig.json && node dist/db/migrate.js"
   },
   "dependencies": {
-    "@thd/shared": "*"
+    "@thd/shared": "*",
+    "dotenv": "^18.0.6",
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1"
   }
 }
