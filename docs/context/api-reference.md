@@ -15,6 +15,7 @@ All responses are JSON. Errors follow:
 Returns the current authenticated user, their role, and roster status if applicable.
 - **Auth:** any authenticated Telegram user (even unverified).
 - **Response:** `{ user: User, roster: RosterEntry | null }`
+- **Dev-only auth (never in production):** with `AUTH_MOCK_ENABLED=true`, send `X-Mock-User: {"id": 4444444444, "username": "dev_admin"}` (strict schema — `role`/`email` are rejected) instead of `Authorization: tma <initData>`. When the flag is off the header is ignored. Auth failure → `401`; role denial → `403`.
 
 ## Registration
 

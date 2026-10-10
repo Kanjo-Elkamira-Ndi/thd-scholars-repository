@@ -5,11 +5,14 @@
 ### Mini App → API
 The Mini App never has its own login form. It authenticates using Telegram's `initData`, a signed string Telegram injects into the Mini App at launch, containing the user's Telegram identity.
 - The API **must** verify `initData`'s HMAC signature server-side on every request, using the bot token as the secret. Never trust an unverified `initData` payload.
-- `initData` includes an `auth_date`; reject requests where this is older than a short window (recommend 24 hours max, shorter if feasible) to limit replay risk.
+- `initData` includes an `auth_date`; reject requests where this is older than the staleness window (configurable via `TELEGRAM_AUTH_MAX_AGE_SECONDS`, default 24 hours) to limit replay risk. Requests whose `auth_date` is more than 60 seconds in the future are also rejected.
 - The verified `telegram_id` from `initData` is the only source of truth for "who is making this request" — never accept a user ID passed in the request body as identity.
 
 ### Bot Service → API
 Internal-only endpoints (`/internal/*`) are authenticated with a static internal service token (`X-Internal-Token`), set via environment variable, rotated periodically. These endpoints are never exposed to the public internet without this check.
+
+### Dev-only mock authentication
+For local development and automated tests only: setting `AUTH_MOCK_ENABLED=true` lets a request identify itself with an `X-Mock-User` header instead of a signed `initData`. `env.ts` refuses to boot with `AUTH_MOCK_ENABLED=true` when `NODE_ENV=production`, so this path can never be enabled in production. The header is parsed with a strict schema (`{ id, username?, firstName?, lastName? }`) that rejects any `role` or `email` key — identity can be mocked, but authorization always comes from the database. The mock path is clearly marked in `src/middleware/auth.ts` and logs a warning when used. When the flag is off, the `X-Mock-User` header is ignored entirely.
 
 ## Authorization (RBAC)
 

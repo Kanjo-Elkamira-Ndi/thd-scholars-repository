@@ -7,11 +7,12 @@ thd-scholars-repository/
 ├── apps/
 │   ├── api/
 │   │   ├── src/
+│   │   │   ├── auth/                # framework-free initData verifier/signer + constant-time compare
 │   │   │   ├── config/              # env loading, constants
 │   │   │   ├── controllers/         # thin HTTP handlers, one file per resource
 │   │   │   ├── services/            # business logic (registration, roster, content, roles)
-│   │   │   ├── repositories/        # raw `pg` query modules, one per table
-│   │   │   ├── middleware/          # auth (initData verify), RBAC guard, error handler
+│   │   │   ├── repositories/        # raw `pg` query modules, one per table (users.repository.ts, roster.repository.ts, ...)
+│   │   │   ├── middleware/          # auth (initData verify), RBAC guard, internal token, error handler
 │   │   │   ├── routes/              # express routers, one per resource, mounted in app.ts
 │   │   │   ├── validators/          # zod schemas for request bodies (imports from packages/shared where shared)
 │   │   │   ├── types/               # API-only types
@@ -19,11 +20,12 @@ thd-scholars-repository/
 │   │   │   ├── jobs/                # node-cron jobs (quarterly audit, graduation review)
 │   │   │   ├── db/
 │   │   │   │   ├── migrations/      # 0001_init_users_roster.sql ... 0006_settings.sql (sequential, never edited after merge)
-│   │   │   │   ├── seeds/           # dev-only seed data
+│   │   │   │   ├── seeds/           # dev-only seed data (dev-users.ts fixtures, seed-users.ts runner)
 │   │   │   │   ├── migrate.ts       # migration runner (tracks applied files in schema_migrations)
 │   │   │   │   └── pool.ts          # pg Pool instance, single source
 │   │   │   ├── app.ts               # express app assembly (middleware + routes)
 │   │   │   └── server.ts            # entrypoint, listens on PORT
+│   │   ├── scripts/                 # tsx dev scripts (make-init-data.ts signs dev initData)
 │   │   ├── tests/
 │   │   │   ├── unit/
 │   │   │   └── integration/
@@ -103,6 +105,8 @@ thd-scholars-repository/
 ├── .gitignore
 └── README.md
 ```
+
+**API dev scripts:** `npm run seed --workspace=apps/api` applies the `src/db/seeds` fixtures (one user per role; refuses to run with `NODE_ENV=production`), and `npm run make:init-data --workspace=apps/api -- --role=<role>` prints a signed `Authorization: tma <initData>` header for testing the API locally. Unit tests (`vitest`) live next to the code as `*.test.ts` and run with `npm test`.
 
 ## Conventions for this structure
 - **One table, one repository file.** `repositories/roster.repository.ts` only talks to `roster`. If a query needs a join, it still lives in the repository of the "owning" resource for that operation.

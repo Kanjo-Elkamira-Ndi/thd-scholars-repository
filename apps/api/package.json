@@ -6,7 +6,11 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "dev": "tsx watch src/server.ts",
-    "migrate": "tsc -p tsconfig.json && node dist/db/migrate.js"
+    "migrate": "tsc -p tsconfig.json && node dist/db/migrate.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "seed": "tsx src/db/seeds/seed-users.ts",
+    "make:init-data": "tsx scripts/make-init-data.ts"
   },
   "dependencies": {
     "@thd/shared": "*",
@@ -24,6 +28,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/pg": "^8.23.1",
-    "tsx": "^4.20.0"
+    "tsx": "^4.20.0",
+    "vitest": "^5.0.3"
   }
 }

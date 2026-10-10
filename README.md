@@ -84,17 +84,33 @@ npm run dev --workspace=apps/miniapp
 
 | App   | Variable                 | Purpose                                    |
 | ----- | ------------------------ | ------------------------------------------ |
-| `api` | `DATABASE_URL`           | PostgreSQL connection string               |
-| `api` | `API_INTERNAL_TOKEN`     | Shared secret for bot → API internal calls |
-| `api` | `MINIAPP_ORIGIN`         | Allowed CORS origin for the Mini App       |
-| `api` | `PORT`                   | HTTP port the API listens on (default 3000)|
-| `api` | `NODE_ENV`               | `development` \| `test` \| `production`    |
-| `bot` | `BOT_TOKEN`              | Telegram Bot API token                     |
-| `bot` | `API_BASE_URL`           | Where the bot reaches the API service      |
+| `api` | `DATABASE_URL`              | PostgreSQL connection string               |
+| `api` | `API_INTERNAL_TOKEN`        | Shared secret for bot → API internal calls |
+| `api` | `MINIAPP_ORIGIN`            | Allowed CORS origin for the Mini App       |
+| `api` | `PORT`                      | HTTP port the API listens on (default 3000)|
+| `api` | `NODE_ENV`                  | `development` \| `test` \| `production`    |
+| `api` | `BOT_TOKEN`                 | Telegram bot token — HMAC key verifying Mini App `initData` |
+| `api` | `TELEGRAM_AUTH_MAX_AGE_SECONDS` | Accepted age of `initData` before it is rejected (default `86400`) |
+| `api` | `AUTH_MOCK_ENABLED`         | `true` enables the dev-only `X-Mock-User` auth path (refused in production) |
+| `bot` | `BOT_TOKEN`                 | Telegram Bot API token                     |
+| `bot` | `API_BASE_URL`              | Where the bot reaches the API service      |
 
-`BOT_TOKEN` (API-side verification of Telegram `initData`) and `DRIVE_API_KEY` (Google Drive uploads) will be added to the API config alongside those features — they are not required yet.
+`BOT_TOKEN` is now required by the API as well — it is the HMAC key the API uses to verify Telegram `initData`. `DRIVE_API_KEY` (Google Drive uploads) will be added alongside that feature and is not required yet.
 
 Full details in each app's `.env.example`.
+
+### Dev helpers (API)
+
+```bash
+# seed one dev user per role (scholar/faculty/registrar/admin) — refuses in production
+npm run seed --workspace=apps/api
+
+# print a signed `Authorization: tma <initData>` header for a seeded role
+npm run make:init-data --workspace=apps/api -- --role=admin
+
+# run the test suite (vitest) across workspaces
+npm test
+```
 
 ## Deployment notes
 

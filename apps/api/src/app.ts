@@ -3,8 +3,12 @@ import express from 'express';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { env } from './config/env';
+import { authUser } from './middleware/auth';
 import { errorHandler } from './middleware/error-handler';
+import { internalServiceToken } from './middleware/internal-token';
+import authRoutes from './routes/auth-routes';
 import healthRoutes from './routes/health-routes';
+import internalRoutes from './routes/internal-routes';
 
 const app = express();
 
@@ -33,6 +37,9 @@ app.use((req, _res, next) => {
 });
 
 app.use('/api', healthRoutes);
+
+app.use('/api', authUser, authRoutes);
+app.use('/internal', internalServiceToken, internalRoutes);
 
 app.use((_req, res) => {
   res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Route not found' } });
