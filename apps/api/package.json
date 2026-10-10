@@ -5,14 +5,25 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "dev": "tsx watch src/server.ts",
     "migrate": "tsc -p tsconfig.json && node dist/db/migrate.js"
   },
   "dependencies": {
     "@thd/shared": "*",
+    "cors": "^2.8.6",
     "dotenv": "^18.0.6",
-    "pg": "^8.23.1"
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.1",
+    "helmet": "^8.3.0",
+    "pg": "^8.23.1",
+    "pino": "^10.4.0",
+    "pino-pretty": "^13.2.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@types/pg": "^8.23.1"
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.20.0"
   }
 }

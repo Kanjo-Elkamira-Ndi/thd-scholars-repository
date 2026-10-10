@@ -85,11 +85,14 @@ npm run dev --workspace=apps/miniapp
 | App   | Variable                 | Purpose                                    |
 | ----- | ------------------------ | ------------------------------------------ |
 | `api` | `DATABASE_URL`           | PostgreSQL connection string               |
-| `api` | `BOT_TOKEN`              | Used to verify Telegram `initData` (HMAC)  |
-| `api` | `INTERNAL_SERVICE_TOKEN` | Shared secret for bot → API internal calls |
-| `api` | `DRIVE_API_KEY`          | Google Drive service account access        |
+| `api` | `API_INTERNAL_TOKEN`     | Shared secret for bot → API internal calls |
+| `api` | `MINIAPP_ORIGIN`         | Allowed CORS origin for the Mini App       |
+| `api` | `PORT`                   | HTTP port the API listens on (default 3000)|
+| `api` | `NODE_ENV`               | `development` \| `test` \| `production`    |
 | `bot` | `BOT_TOKEN`              | Telegram Bot API token                     |
 | `bot` | `API_BASE_URL`           | Where the bot reaches the API service      |
+
+`BOT_TOKEN` (API-side verification of Telegram `initData`) and `DRIVE_API_KEY` (Google Drive uploads) will be added to the API config alongside those features — they are not required yet.
 
 Full details in each app's `.env.example`.
 

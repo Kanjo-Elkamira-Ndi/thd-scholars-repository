@@ -28,7 +28,7 @@ Internal-only endpoints (`/internal/*`) are authenticated with a static internal
 
 ## Secrets management
 
-- `BOT_TOKEN`, `DATABASE_URL`, `DRIVE_API_KEY`, `INTERNAL_SERVICE_TOKEN`, and any other credential live in environment variables only, loaded via `.env` locally (git-ignored) and the hosting platform's secret manager in deployed environments.
+- `BOT_TOKEN`, `DATABASE_URL`, `DRIVE_API_KEY`, `API_INTERNAL_TOKEN`, and any other credential live in environment variables only, loaded via `.env` locally (git-ignored) and the hosting platform's secret manager in deployed environments.
 - Never commit `.env` files. Each app ships an `.env.example` with placeholder values and comments, not real secrets.
 - Rotate the internal service token and any API keys if a developer with access leaves the project or a leak is suspected.
 

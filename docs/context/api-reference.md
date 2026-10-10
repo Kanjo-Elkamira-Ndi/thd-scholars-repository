@@ -102,7 +102,7 @@ Paginated audit log viewer.
 
 ### `GET /api/settings`
 Current system configuration.
-- **Response:** `{ settings: SystemSettings }` — `{ registrationIdPattern: string, availableCohortYears: number[], inviteLinkExpirySeconds: number }` (shapes defined in `packages/shared` as `SystemSettings`).
+- **Response:** `{ settings: SystemSettings }` — `{ registrationIdPattern: string, availableCohortYears: number[], inviteLinkExpirySeconds: number, maxUploadSizeBytes: number }` (shapes defined in `packages/shared` as `SystemSettings`).
 - **Auth:** Admin.
 
 ### `PATCH /api/settings`

@@ -18,8 +18,9 @@ thd-scholars-repository/
 │   │   │   ├── utils/               # pure helper functions
 │   │   │   ├── jobs/                # node-cron jobs (quarterly audit, graduation review)
 │   │   │   ├── db/
-│   │   │   │   ├── migrations/      # 0001_init.sql, 0002_add_roster.sql, ... (sequential, never edited after merge)
+│   │   │   │   ├── migrations/      # 0001_init_users_roster.sql ... 0006_settings.sql (sequential, never edited after merge)
 │   │   │   │   ├── seeds/           # dev-only seed data
+│   │   │   │   ├── migrate.ts       # migration runner (tracks applied files in schema_migrations)
 │   │   │   │   └── pool.ts          # pg Pool instance, single source
 │   │   │   ├── app.ts               # express app assembly (middleware + routes)
 │   │   │   └── server.ts            # entrypoint, listens on PORT
@@ -93,7 +94,12 @@ thd-scholars-repository/
 │   └── workflows/                   # CI: lint, typecheck, test on PR
 │
 ├── package.json                     # workspace root, defines workspaces array
-├── tsconfig.base.json                # shared compiler options, extended by each app
+├── package-lock.json                # npm lockfile — commit it
+├── tsconfig.base.json               # shared compiler options (strict), extended by each app
+├── eslint.config.mjs                # shared ESLint flat config (typescript-eslint + Prettier)
+├── .prettierrc.json                 # shared Prettier config
+├── .prettierignore
+├── .editorconfig
 ├── .gitignore
 └── README.md
 ```

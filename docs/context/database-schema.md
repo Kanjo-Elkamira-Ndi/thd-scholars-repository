@@ -120,7 +120,20 @@ users 1───* audit_logs        (via audit_logs.actor_user_id)
 0003_content_posts.sql
 0004_audit_logs.sql
 0005_add_roster_status_index.sql
+0006_settings.sql
 ```
+
+`schema_migrations` (created by the runner in `apps/api/src/db/migrate.ts`): one row per applied migration — `name` (primary key, the filename) and `applied_at`. Never edited; the runner appends to it.
+
+### `settings`
+Key-value store for system configuration (seeded by migration `0006`, read/written via the Settings endpoints).
+
+| Column | Type | Notes |
+|---|---|---|
+| `key` | `text` PK | e.g. `registrationIdPattern`, `availableCohortYears`, `inviteLinkExpirySeconds`, `maxUploadSizeBytes` |
+| `value` | `jsonb` | not null — arbitrary shape per key |
+| `updated_by` | `uuid` FK → `users.id` | nullable — who last changed the value |
+| `updated_at` | `timestamptz` | default `now()` |
 
 ## What agents should never do
 - Never generate a migration that `ALTER`s or `DROP`s a column already shipped to `main` without a corresponding data-migration plan — write an additive migration instead and handle backfill explicitly.

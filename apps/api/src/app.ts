@@ -3,9 +3,8 @@ import express from 'express';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { env } from './config/env';
-import { errorHandler } from './middlewares/error-handler';
+import { errorHandler } from './middleware/error-handler';
 import healthRoutes from './routes/health-routes';
-import { logger } from './utils/logger';
 
 const app = express();
 
@@ -29,7 +28,7 @@ app.use(
 );
 
 app.use((req, _res, next) => {
-  (req as any).id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  req.id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   next();
 });
 
