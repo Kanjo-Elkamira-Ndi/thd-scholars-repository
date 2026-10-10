@@ -11,6 +11,8 @@ The Mini App never has its own login form. It authenticates using Telegram's `in
 ### Bot Service → API
 Internal-only endpoints (`/internal/*`) are authenticated with a static internal service token (`X-Internal-Token`), set via environment variable, rotated periodically. These endpoints are never exposed to the public internet without this check.
 
+The bot's `/mystatus` command reads `GET /internal/users/:telegramId/status` — a read-only endpoint (no side effects, no audit log) that returns the same `{ user, roster }` shape as `GET /api/me`. It is behind `X-Internal-Token`; the bot never queries the database or checks roles itself.
+
 ### Dev-only mock authentication
 For local development and automated tests only: setting `AUTH_MOCK_ENABLED=true` lets a request identify itself with an `X-Mock-User` header instead of a signed `initData`. `env.ts` refuses to boot with `AUTH_MOCK_ENABLED=true` when `NODE_ENV=production`, so this path can never be enabled in production. The header is parsed with a strict schema (`{ id, username?, firstName?, lastName? }`) that rejects any `role` or `email` key — identity can be mocked, but authorization always comes from the database. The mock path is clearly marked in `src/middleware/auth.ts` and logs a warning when used. When the flag is off, the `X-Mock-User` header is ignored entirely.
 

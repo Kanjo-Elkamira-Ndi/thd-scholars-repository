@@ -103,6 +103,31 @@ npm run dev --workspace=apps/miniapp
 
 Full details in each app's `.env.example`.
 
+### Bot Service (`apps/bot`)
+
+Runs as a separate process from the API. It holds only the bot token and the internal service token — it never queries Postgres and never makes an authorization decision; it renders what the API returns.
+
+| Variable             | Purpose                                                                 |
+| -------------------- | ----------------------------------------------------------------------- |
+| `BOT_TOKEN`          | Telegram Bot API token (from @BotFather)                                |
+| `API_BASE_URL`       | Base URL of the API service (default `http://localhost:3000`)           |
+| `API_INTERNAL_TOKEN` | Internal service token — **must match the API's `API_INTERNAL_TOKEN`**  |
+| `MINIAPP_URL`        | Deep-link target for the `/start` "Open Registration" button            |
+| `BOT_MODE`           | `polling` (dev) or `webhook` (prod); defaults from `NODE_ENV` when unset |
+| `BOT_WEBHOOK_DOMAIN` | Public HTTPS origin — required when `BOT_MODE=webhook`                  |
+| `BOT_WEBHOOK_PATH`   | Webhook path (default `/telegram/webhook`)                              |
+| `BOT_WEBHOOK_SECRET` | Webhook secret token — required when `BOT_MODE=webhook`                 |
+| `BOT_WEBHOOK_PORT`   | Webhook listen port (default `8080`)                                    |
+| `API_TIMEOUT_MS`     | API request timeout in ms (default `5000`)                              |
+| `NODE_ENV`           | `development` \| `test` \| `production`                                 |
+
+```bash
+# run the bot (polling in development)
+npm run dev --workspace=apps/bot
+```
+
+Production uses webhook mode (`BOT_MODE=webhook` with `BOT_WEBHOOK_DOMAIN` and `BOT_WEBHOOK_SECRET` set), behind an HTTPS endpoint.
+
 ### Dev helpers (API)
 
 ```bash

@@ -130,6 +130,13 @@ Summary stats for the Admin dashboard (total scholars, pending requests, recent 
 ### `POST /internal/join-requests/:id/complete`
 Bot confirms it executed the Telegram approve/decline call; API finalizes the `join_requests` row.
 
+### `GET /internal/users/:telegramId/status`
+Read a user's verification status for the Bot Service (`/mystatus`). Read-only.
+- **Auth:** `X-Internal-Token`.
+- **Path param:** `telegramId` must be numeric (else `400 VALIDATION_ERROR`).
+- **Response:** `200 { user: User, roster: RosterEntry | null }` (same shape as `GET /api/me`).
+- **Errors:** `400 VALIDATION_ERROR`, `404 NOT_FOUND` (unknown user).
+
 ### `POST /internal/content/:id/confirm`
 Bot confirms it posted to the channel; API stores `telegramMessageId`.
 

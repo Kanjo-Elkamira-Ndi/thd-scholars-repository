@@ -66,3 +66,14 @@ export const updateUserProfile = async (
   );
   return mapUserRow(rows[0]);
 };
+
+export const getUserByTelegramId = async (
+  telegramId: number,
+  db: Db = pool,
+): Promise<User | null> => {
+  const { rows } = await db.query<UserRow>(
+    `SELECT ${USER_COLUMNS} FROM users WHERE telegram_id = $1::bigint`,
+    [telegramId],
+  );
+  return rows.length ? mapUserRow(rows[0]) : null;
+};

@@ -68,3 +68,8 @@ export interface AuditLog {
   details: Record<string, unknown> | null;
   createdAt: string;
 }
+
+export interface UserStatusResponse {
+  user: User;
+  roster: RosterEntry | null;
+}

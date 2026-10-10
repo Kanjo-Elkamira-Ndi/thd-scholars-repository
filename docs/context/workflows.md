@@ -6,7 +6,7 @@ End-to-end user journeys, mapped to the roles in `project-overview.md` and the e
 **Actor:** unverified user → Scholar
 **Trigger:** user taps "Request to Join" on the Telegram channel, or opens the bot directly.
 
-1. Bot's `/start` message explains the process and links into the Mini App registration form.
+1. Bot's `/start` message explains the process and its "Open Registration" inline button deep-links (via `MINIAPP_URL`) into the Mini App registration form. After registering, the user can run `/mystatus` in the bot to see their current roster status.
 2. User fills out: Full Name, DIBI Registration ID, Cohort Year, Email, Telegram Username (auto-filled), Program Track, Supervisor (optional), Declaration checkbox.
 3. Mini App submits `POST /api/registrations`.
 4. API validates the Registration ID format (against the configurable regex), looks up `roster` by `registration_id`.
