@@ -19,6 +19,8 @@ export interface RosterEntry {
   programTrack: string;
   supervisorName: string | null;
   status: RosterStatus;
+  accessReviewPending: boolean;
+  accessReviewFlaggedAt: string | null;
   updatedBy: string | null;
   updatedAt: string;
   createdAt: string;

@@ -37,6 +37,8 @@ The verification source of truth. One row per Th.D. candidate record (not necess
 | `program_track` | `text` | not null |
 | `supervisor_name` | `text` | nullable |
 | `status` | `text` | not null, default `'pending'`, CHECK against user_status list |
+| `access_review_pending` | `boolean` | not null, default `false` — set when the entry moves to `graduated`/`withdrawn`, cleared when it returns to `active` |
+| `access_review_flagged_at` | `timestamptz` | nullable — when `access_review_pending` was last set |
 | `updated_by` | `uuid` FK → `users.id` | who last changed status — nullable (system-initiated changes) |
 | `updated_at` | `timestamptz` | default `now()` |
 | `created_at` | `timestamptz` | default `now()` |
@@ -111,6 +113,7 @@ users 1───* audit_logs        (via audit_logs.actor_user_id)
 - `roster.status` — index (quarterly audit queries filter heavily on this).
 - `content_posts.discipline_tag`, `content_posts.format_tag`, `content_posts.cohort_tag` — composite or separate indexes depending on actual query patterns once the content index search is built; start with separate B-tree indexes and revisit if search gets slow.
 - `audit_logs.created_at` — index, since the audit viewer will paginate by recency.
+- `join_requests(user_id, created_at)` — composite index, since registration decisions and the repeated-failure check count recent declines per user.
 
 ## Migration file naming
 `NNNN_short_description.sql`, zero-padded, sequential, never renumbered:
@@ -121,6 +124,7 @@ users 1───* audit_logs        (via audit_logs.actor_user_id)
 0004_audit_logs.sql
 0005_add_roster_status_index.sql
 0006_settings.sql
+0007_roster_access_review.sql
 ```
 
 `schema_migrations` (created by the runner in `apps/api/src/db/migrate.ts`): one row per applied migration — `name` (primary key, the filename) and `applied_at`. Never edited; the runner appends to it.

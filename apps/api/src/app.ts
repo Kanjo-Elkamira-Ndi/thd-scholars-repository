@@ -9,6 +9,8 @@ import { internalServiceToken } from './middleware/internal-token';
 import authRoutes from './routes/auth-routes';
 import healthRoutes from './routes/health-routes';
 import internalRoutes from './routes/internal-routes';
+import registrationsRoutes from './routes/registrations-routes';
+import rosterRoutes from './routes/roster-routes';
 
 const app = express();
 
@@ -39,6 +41,8 @@ app.use((req, _res, next) => {
 app.use('/api', healthRoutes);
 
 app.use('/api', authUser, authRoutes);
+app.use('/api', authUser, registrationsRoutes);
+app.use('/api', authUser, rosterRoutes);
 app.use('/internal', internalServiceToken, internalRoutes);
 
 app.use((_req, res) => {

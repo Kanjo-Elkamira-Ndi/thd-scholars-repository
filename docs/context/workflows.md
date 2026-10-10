@@ -10,8 +10,8 @@ End-to-end user journeys, mapped to the roles in `project-overview.md` and the e
 2. User fills out: Full Name, DIBI Registration ID, Cohort Year, Email, Telegram Username (auto-filled), Program Track, Supervisor (optional), Declaration checkbox.
 3. Mini App submits `POST /api/registrations`.
 4. API validates the Registration ID format (against the configurable regex), looks up `roster` by `registration_id`.
-5. **If matched and `status = active`:** API marks `join_requests.status = approved`, calls Bot Service → `approveChatJoinRequest`. Bot sends the approval welcome message.
-6. **If no match, or matched but not active:** API marks `join_requests.status = declined` with a `reason`, calls Bot Service → `declineChatJoinRequest`. Bot sends a message directing the user to the registrar.
+5. **If matched and `status = active`:** API marks `join_requests.status = approved`, links the roster row to the user, stamps the user's profile, and writes an `audit_logs` row in the same transaction. *The Bot Service call → `approveChatJoinRequest` (and the welcome message) is deferred to the Bot Service phase — this phase only records the decision.*
+6. **If no match, or matched but not active:** API marks `join_requests.status = declined` with a `reason`, and writes an `audit_logs` row. *The Bot Service call → `declineChatJoinRequest` (and the "contact the registrar" message) is deferred to the Bot Service phase.*
 7. API writes an `audit_logs` entry either way.
 8. If the same `telegram_id` fails validation/matching repeatedly (threshold configurable), API notifies Registrar/Admin per FR27.
 

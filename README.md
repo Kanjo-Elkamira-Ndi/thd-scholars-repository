@@ -92,6 +92,10 @@ npm run dev --workspace=apps/miniapp
 | `api` | `BOT_TOKEN`                 | Telegram bot token — HMAC key verifying Mini App `initData` |
 | `api` | `TELEGRAM_AUTH_MAX_AGE_SECONDS` | Accepted age of `initData` before it is rejected (default `86400`) |
 | `api` | `AUTH_MOCK_ENABLED`         | `true` enables the dev-only `X-Mock-User` auth path (refused in production) |
+| `api` | `REGISTRATION_RATE_LIMIT_WINDOW_SECONDS` | Rate-limit window for `POST /api/registrations`, per `telegram_id` (default `900`) |
+| `api` | `REGISTRATION_RATE_LIMIT_MAX` | Max registration attempts per window (default `5`) |
+| `api` | `REPEATED_REGISTRATION_FAILURE_THRESHOLD` | Declines within the window before the repeated-failure hook fires (default `3`) |
+| `api` | `REPEATED_REGISTRATION_FAILURE_WINDOW_SECONDS` | Window for counting repeated declines (default `86400`) |
 | `bot` | `BOT_TOKEN`                 | Telegram Bot API token                     |
 | `bot` | `API_BASE_URL`              | Where the bot reaches the API service      |
 
@@ -110,6 +114,9 @@ npm run make:init-data --workspace=apps/api -- --role=admin
 
 # run the test suite (vitest) across workspaces
 npm test
+
+# run the API integration suite against a disposable `_test` database
+npm run test:integration --workspace=apps/api
 ```
 
 ## Deployment notes

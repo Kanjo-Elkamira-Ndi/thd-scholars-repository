@@ -36,4 +36,9 @@ export const registrationPayloadSchema = createRegistrationPayloadSchema(
   DEFAULT_REGISTRATION_ID_REGEX,
 );
 
+export interface RegistrationResult {
+  decision: 'approved' | 'declined';
+  reason: string | null;
+}
+
 export type RegistrationPayload = z.infer<typeof registrationPayloadSchema>;

@@ -22,9 +22,12 @@ Returns the current authenticated user, their role, and roster status if applica
 ### `POST /api/registrations`
 Submits a registration form. Triggers roster matching and the approve/decline decision.
 - **Auth:** any authenticated Telegram user.
+- **Rate limit:** per `telegram_id` — `REGISTRATION_RATE_LIMIT_MAX` (default 5) requests per `REGISTRATION_RATE_LIMIT_WINDOW_SECONDS` (default 900s). Over the limit → `429 RATE_LIMITED`.
 - **Body:** `{ fullName, registrationId, cohortYear, email, telegramUsername, programTrack, supervisorName?, declarationAccepted: true }`
-- **Response:** `{ decision: 'approved' | 'declined', reason?: string }`
-- **Side effects:** writes `join_requests` row, calls Bot Service to approve/decline the Telegram join request, writes `audit_logs` row.
+- **Status:** `201 Created`.
+- **Response:** `{ decision: 'approved' | 'declined', reason: string | null }` — `reason` is `null` on approval; otherwise `'No matching roster entry found'` or `'Roster record is not active (status: <status>)'`.
+- **Errors:** `400 VALIDATION_ERROR` (bad body, e.g. registration id not matching `settings.registrationIdPattern`), `429 RATE_LIMITED`.
+- **Side effects:** writes an `join_requests` row (`approved`/`declined`) and an `audit_logs` row in one transaction; on approval links the roster row to the user and stamps `users.full_name`/`email`/`telegram_username`. The Telegram join-request approve/decline call is deferred to the Bot Service phase (see `workflows.md`).
 
 ### `GET /api/registrations/:id`
 Fetch a single join request (status lookup).
@@ -34,18 +37,25 @@ Fetch a single join request (status lookup).
 
 ### `GET /api/roster`
 List/search/filter the roster.
-- **Auth:** Registrar, Admin.
-- **Query params:** `status`, `cohortYear`, `search` (matches name/registrationId), `page`, `pageSize`.
+- **Auth:** Registrar, Admin (others → `403`).
+- **Query params:** `status` (`active|graduated|withdrawn|pending`), `cohortYear`, `search` (matches `registrationId` or the linked user's `full_name`, case-insensitive), `page` (default 1), `pageSize` (default 20, max 100).
+- **Response:** `{ items: RosterEntry[], total: number, page: number, pageSize: number }`.
 
 ### `POST /api/roster`
 Pre-load an expected student record (before they've registered).
 - **Auth:** Registrar, Admin.
 - **Body:** `{ registrationId, cohortYear, programTrack, supervisorName? }`
+- **Status:** `201 Created` → `{ rosterEntry: RosterEntry }`.
+- **Errors:** `400 VALIDATION_ERROR` (bad body/registration id), `409 CONFLICT` (duplicate `registration_id`).
+- **Side effects:** writes an `audit_logs` row (`create_roster_entry`).
 
 ### `PATCH /api/roster/:id`
-Update a roster entry, most commonly `status`.
+Update a roster entry, most commonly `status`. `:id` must be a UUID (else `400 VALIDATION_ERROR`).
 - **Auth:** Registrar, Admin.
-- **Body:** `{ status?, cohortYear?, programTrack?, supervisorName? }`
+- **Body:** `{ status?, cohortYear?, programTrack?, supervisorName? }` (at least one field).
+- **Status:** `200 OK` → `{ rosterEntry: RosterEntry }`.
+- **Errors:** `400 VALIDATION_ERROR`, `404 NOT_FOUND`.
+- **Side effects:** writes an `audit_logs` row. Moving to `graduated`/`withdrawn` sets `rosterEntry.accessReviewPending: true` (and stamps `accessReviewFlaggedAt`); moving back to `active` clears it to `false`.
 - **Side effects:** writes `audit_logs` row with old/new status. If status moves to `graduated`/`withdrawn`, flags for Admin access-review rather than auto-removing (see `workflows.md`).
 
 ### `GET /api/roster/audit`

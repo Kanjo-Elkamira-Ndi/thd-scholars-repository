@@ -9,6 +9,7 @@
     "migrate": "tsc -p tsconfig.json && node dist/db/migrate.js",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:integration": "vitest run -c vitest.integration.config.ts",
     "seed": "tsx src/db/seeds/seed-users.ts",
     "make:init-data": "tsx scripts/make-init-data.ts"
   },
@@ -28,6 +29,8 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/pg": "^8.23.1",
+    "@types/supertest": "^7.2.1",
+    "supertest": "^7.3.1",
     "tsx": "^4.20.0",
     "vitest": "^5.0.3"
   }

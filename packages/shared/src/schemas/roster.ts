@@ -35,5 +35,14 @@ export const rosterUpdateSchema = z
   })
   .refine(hasAtLeastOneField, { message: 'At least one field must be provided' });
 
+export const rosterQuerySchema = z.object({
+  status: z.enum(ROSTER_STATUS_VALUES).optional(),
+  cohortYear: z.coerce.number().int().min(1900).max(2100).optional(),
+  search: z.string().trim().min(1).max(200).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+});
+
 export type RosterCreateInput = z.infer<typeof rosterCreateSchema>;
 export type RosterUpdateInput = z.infer<typeof rosterUpdateSchema>;
+export type RosterQuery = z.infer<typeof rosterQuerySchema>;

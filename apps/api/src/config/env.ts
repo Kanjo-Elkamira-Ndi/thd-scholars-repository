@@ -18,6 +18,10 @@ const EnvSchema = z
       .optional()
       .default('false')
       .transform((value) => value === 'true'),
+    REGISTRATION_RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().positive().default(900),
+    REGISTRATION_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(5),
+    REPEATED_REGISTRATION_FAILURE_THRESHOLD: z.coerce.number().int().positive().default(3),
+    REPEATED_REGISTRATION_FAILURE_WINDOW_SECONDS: z.coerce.number().int().positive().default(86400),
   })
   .superRefine((data, ctx) => {
     if (data.AUTH_MOCK_ENABLED && data.NODE_ENV === 'production') {

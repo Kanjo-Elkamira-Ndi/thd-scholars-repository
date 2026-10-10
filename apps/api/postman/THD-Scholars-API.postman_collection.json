@@ -1,0 +1,676 @@
+{
+  "info": {
+    "name": "THD Scholars API — Phase 6 (Roster + Registration)",
+    "_postman_id": "b7f0a2c4-6d51-4e8a-9c3b-1f2e3d4a5c6b",
+    "description": "Covers the Phase 6 endpoints (see docs/context/api-reference.md).\n\nSETUP\n1. In apps/api/.env set AUTH_MOCK_ENABLED=true and add a non-empty BOT_TOKEN, then run the API: `npm run dev --workspace=apps/api`.\n2. Seed dev users: `npm run seed --workspace=apps/api` (scholar 1111111111, faculty 2222222222, registrar 3333333333, admin 4444444444).\n3. Import this collection and the paired environment (THD-Scholars-API.postman_environment.json), select it, then run the requests in the \"0. Setup\" folder once before the rest.\n\nAUTH\nEach request declares its identity with an `X-Role` header. The collection-level pre-request script removes it and, depending on the `authMode` environment variable:\n- `mock` (default): sets `X-Mock-User` for that role (requires AUTH_MOCK_ENABLED=true).\n- `tma`: sets `Authorization: tma <initData>` from the `<role>InitData` environment variable (generate with `npm run make:init-data --workspace=apps/api -- --role=<role>`).\n\nNOTE: The mock auth path keeps the existing DB role, so seed BEFORE sending requests.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const mode = (pm.environment.get('authMode') || 'mock').toLowerCase();",
+          "const role = (pm.request.headers.get('X-Role') || 'scholar').toLowerCase();",
+          "pm.request.headers.remove('X-Role');",
+          "",
+          "if (mode === 'tma') {",
+          "  const map = {",
+          "    scholar: pm.environment.get('scholarInitData'),",
+          "    faculty: pm.environment.get('facultyInitData'),",
+          "    registrar: pm.environment.get('registrarInitData'),",
+          "    admin: pm.environment.get('adminInitData')",
+          "  };",
+          "  const init = map[role];",
+          "  if (init) {",
+          "    pm.request.headers.upsert({ key: 'Authorization', value: 'tma ' + init });",
+          "  } else {",
+          "    console.warn('authMode=tma but no initData for role ' + role);",
+          "  }",
+          "} else {",
+          "  const ids = { scholar: 1111111111, faculty: 2222222222, registrar: 3333333333, admin: 4444444444 };",
+          "  pm.request.headers.upsert({",
+          "    key: 'X-Mock-User',",
+          "    value: JSON.stringify({ id: ids[role], username: 'dev_' + role })",
+          "  });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "rosterId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "0. Setup",
+      "item": [
+        {
+          "name": "GET /api/me (scholar sanity)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Role", "value": "scholar" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "me"]
+            },
+            "description": "Confirms auth works and returns the current user + roster."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('has user', () => pm.expect(pm.response.json()).to.have.property('user'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Setup A — create roster DIBI-THD-0042 (starts pending)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Role", "value": "registrar" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"registrationId\": \"DIBI-THD-0042\",\n  \"cohortYear\": 2025,\n  \"programTrack\": \"Theology\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/roster",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "roster"]
+            },
+            "description": "Creates the entry used by the approval case; saves its id into {{rosterId}}."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 or 409 if it already exists', () => pm.expect([201, 409]).to.include(pm.response.code));",
+                  "const j = pm.response.json();",
+                  "if (j && j.rosterEntry && j.rosterEntry.id) { pm.collectionVariables.set('rosterId', j.rosterEntry.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Setup B — activate roster DIBI-THD-0042",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Role", "value": "registrar" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/roster/{{rosterId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "roster", "{{rosterId}}"]
+            },
+            "description": "Activates the row from Setup A so the approval case matches."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 active', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  pm.expect(pm.response.json().rosterEntry.status).to.eql('active');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Setup B2 — create roster DIBI-THD-0055 (leave pending)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Role", "value": "registrar" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"registrationId\": \"DIBI-THD-0055\",\n  \"cohortYear\": 2024,\n  \"programTrack\": \"Ministry\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/roster",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "roster"]
+            },
+            "description": "A matched-but-not-active row for the registration 'pending match' case. Do NOT activate it."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 CREATED or 409 if it already exists', () => pm.expect([201, 409]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Registration",
+      "item": [
+        {
+          "name": "POST /api/registrations (active match)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Role", "value": "scholar" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Dev Scholar\",\n  \"registrationId\": \"DIBI-THD-0042\",\n  \"cohortYear\": 2025,\n  \"email\": \"dev@example.com\",\n  \"telegramUsername\": \"dev_scholar\",\n  \"programTrack\": \"Theology\",\n  \"declarationAccepted\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/registrations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "registrations"]
+            },
+            "description": "Requires Setup A + B. Expect 201 { decision: 'approved', reason: null }."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 approved', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.decision).to.eql('approved');",
+                  "  pm.expect(j.reason).to.eql(null);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/registrations (no match)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Role", "value": "scholar" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Dev Scholar\",\n  \"registrationId\": \"DIBI-THD-9999\",\n  \"cohortYear\": 2025,\n  \"email\": \"dev@example.com\",\n  \"telegramUsername\": \"dev_scholar\",\n  \"programTrack\": \"Theology\",\n  \"declarationAccepted\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/registrations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "registrations"]
+            },
+            "description": "No roster row with this id."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 declined / no match', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.decision).to.eql('declined');",
+                  "  pm.expect(j.reason).to.eql('No matching roster entry found');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/registrations (pending match)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Role", "value": "scholar" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Dev Scholar\",\n  \"registrationId\": \"DIBI-THD-0055\",\n  \"cohortYear\": 2024,\n  \"email\": \"dev@example.com\",\n  \"telegramUsername\": \"dev_scholar\",\n  \"programTrack\": \"Ministry\",\n  \"declarationAccepted\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/registrations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "registrations"]
+            },
+            "description": "Matches Setup B2 but the row is not active."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 declined / not active', () => {",
+                  "  pm.response.to.have.status(201);",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.decision).to.eql('declined');",
+                  "  pm.expect(j.reason).to.eql('Roster record is not active (status: pending)');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/registrations (bad id format)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Role", "value": "scholar" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Dev Scholar\",\n  \"registrationId\": \"bad-id\",\n  \"cohortYear\": 2025,\n  \"email\": \"dev@example.com\",\n  \"telegramUsername\": \"dev_scholar\",\n  \"programTrack\": \"Theology\",\n  \"declarationAccepted\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/registrations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "registrations"]
+            },
+            "description": "registrationId does not match settings.registrationIdPattern."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 VALIDATION_ERROR', () => {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/registrations (rate limit — send repeatedly)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Role", "value": "scholar" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Dev Scholar\",\n  \"registrationId\": \"DIBI-THD-0042\",\n  \"cohortYear\": 2025,\n  \"email\": \"dev@example.com\",\n  \"telegramUsername\": \"dev_scholar\",\n  \"programTrack\": \"Theology\",\n  \"declarationAccepted\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/registrations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "registrations"]
+            },
+            "description": "Click Send repeatedly: first REGISTRATION_RATE_LIMIT_MAX (default 5) return 201, then 429 RATE_LIMITED."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 then 429 RATE_LIMITED', () => {",
+                  "  pm.expect([201, 429]).to.include(pm.response.code);",
+                  "  if (pm.response.code === 429) {",
+                  "    pm.expect(pm.response.json().error.code).to.eql('RATE_LIMITED');",
+                  "  }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/registrations as faculty (any auth works)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Role", "value": "faculty" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Dev Faculty\",\n  \"registrationId\": \"DIBI-THD-0042\",\n  \"cohortYear\": 2025,\n  \"email\": \"faculty@example.com\",\n  \"telegramUsername\": \"dev_faculty\",\n  \"programTrack\": \"Theology\",\n  \"declarationAccepted\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/registrations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "registrations"]
+            },
+            "description": "Registration only requires an authenticated user, not a specific role."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('201 Created', () => pm.response.to.have.status(201));"]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Roster",
+      "item": [
+        {
+          "name": "GET /api/roster as scholar (403)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Role", "value": "scholar" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/roster",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "roster"]
+            },
+            "description": "Scholar must be denied."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 FORBIDDEN', () => {",
+                  "  pm.response.to.have.status(403);",
+                  "  pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /api/roster (search + paginate) as registrar",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Role", "value": "registrar" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/roster?search=DIBI&page=1&pageSize=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "roster"],
+              "query": [
+                { "key": "search", "value": "DIBI" },
+                { "key": "page", "value": "1" },
+                { "key": "pageSize", "value": "20" }
+              ]
+            },
+            "description": "List with search and pagination."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 list shape', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.all.keys('items', 'total', 'page', 'pageSize');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/roster (new id) as registrar",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Role", "value": "registrar" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"registrationId\": \"DIBI-THD-0101\",\n  \"cohortYear\": 2025,\n  \"programTrack\": \"Theology\",\n  \"supervisorName\": \"Dr. Registrar\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/roster",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "roster"]
+            },
+            "description": "Creates a brand-new roster entry."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 or 409 if it already exists', () => pm.expect([201, 409]).to.include(pm.response.code));",
+                  "pm.test('has rosterEntry on 201', () => {",
+                  "  if (pm.response.code === 201) { pm.expect(pm.response.json()).to.have.property('rosterEntry'); }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /api/roster (duplicate id) 409",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Role", "value": "registrar" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"registrationId\": \"DIBI-THD-0101\",\n  \"cohortYear\": 2025,\n  \"programTrack\": \"Theology\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/roster",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "roster"]
+            },
+            "description": "Same id as the previous request → unique violation."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409 CONFLICT', () => {",
+                  "  pm.response.to.have.status(409);",
+                  "  pm.expect(pm.response.json().error.code).to.eql('CONFLICT');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /api/roster/:id graduated (flags access review)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Role", "value": "registrar" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"graduated\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/roster/{{rosterId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "roster", "{{rosterId}}"]
+            },
+            "description": "Uses the id saved by Setup A."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 accessReviewPending=true', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  const e = pm.response.json().rosterEntry;",
+                  "  pm.expect(e.status).to.eql('graduated');",
+                  "  pm.expect(e.accessReviewPending).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /api/roster/:id active (clears flag)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Role", "value": "registrar" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/roster/{{rosterId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "roster", "{{rosterId}}"]
+            },
+            "description": "Re-activates the entry and clears the flag."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200 accessReviewPending=false', () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  const e = pm.response.json().rosterEntry;",
+                  "  pm.expect(e.status).to.eql('active');",
+                  "  pm.expect(e.accessReviewPending).to.eql(false);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /api/roster/not-a-uuid (400)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Role", "value": "registrar" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/roster/not-a-uuid",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "roster", "not-a-uuid"]
+            },
+            "description": "Non-UUID path param is rejected before the service runs."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400 VALIDATION_ERROR', () => {",
+                  "  pm.response.to.have.status(400);",
+                  "  pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /api/roster/:id as faculty (403)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Role", "value": "faculty" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"graduated\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/roster/{{rosterId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "roster", "{{rosterId}}"]
+            },
+            "description": "Faculty lacks the registrar/admin role."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('403 FORBIDDEN', () => {",
+                  "  pm.response.to.have.status(403);",
+                  "  pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

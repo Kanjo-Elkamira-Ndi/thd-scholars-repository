@@ -9,19 +9,21 @@ thd-scholars-repository/
 │   │   ├── src/
 │   │   │   ├── auth/                # framework-free initData verifier/signer + constant-time compare
 │   │   │   ├── config/              # env loading, constants
-│   │   │   ├── controllers/         # thin HTTP handlers, one file per resource
-│   │   │   ├── services/            # business logic (registration, roster, content, roles)
-│   │   │   ├── repositories/        # raw `pg` query modules, one per table (users.repository.ts, roster.repository.ts, ...)
-│   │   │   ├── middleware/          # auth (initData verify), RBAC guard, internal token, error handler
+│   │   │   ├── controllers/         # thin HTTP handlers, one file per resource (me, registrations, roster)
+│   │   │   ├── services/            # business logic (registration, roster, notifications, content, roles)
+│   │   │   ├── repositories/        # raw `pg` query modules, one per table (users, roster, join-requests, audit-logs, settings, ...)
+│   │   │   ├── middleware/          # auth (initData verify), RBAC guard, internal token, registration rate limit, error handler
 │   │   │   ├── routes/              # express routers, one per resource, mounted in app.ts
 │   │   │   ├── validators/          # zod schemas for request bodies (imports from packages/shared where shared)
 │   │   │   ├── types/               # API-only types
 │   │   │   ├── utils/               # pure helper functions
 │   │   │   ├── jobs/                # node-cron jobs (quarterly audit, graduation review)
 │   │   │   ├── db/
-│   │   │   │   ├── migrations/      # 0001_init_users_roster.sql ... 0006_settings.sql (sequential, never edited after merge)
+│   │   │   │   ├── migrations/      # 0001_init_users_roster.sql ... 0007_roster_access_review.sql (sequential, never edited after merge)
 │   │   │   │   ├── seeds/           # dev-only seed data (dev-users.ts fixtures, seed-users.ts runner)
+│   │   │   │   ├── testing/         # test-DB harness: test-database.ts (create/migrate/reset), global-setup.ts, fixtures.ts
 │   │   │   │   ├── migrate.ts       # migration runner (tracks applied files in schema_migrations)
+│   │   │   │   ├── transaction.ts   # Db type + withTransaction(fn) (pool-or-client, commit/rollback)
 │   │   │   │   └── pool.ts          # pg Pool instance, single source
 │   │   │   ├── app.ts               # express app assembly (middleware + routes)
 │   │   │   └── server.ts            # entrypoint, listens on PORT
@@ -106,7 +108,7 @@ thd-scholars-repository/
 └── README.md
 ```
 
-**API dev scripts:** `npm run seed --workspace=apps/api` applies the `src/db/seeds` fixtures (one user per role; refuses to run with `NODE_ENV=production`), and `npm run make:init-data --workspace=apps/api -- --role=<role>` prints a signed `Authorization: tma <initData>` header for testing the API locally. Unit tests (`vitest`) live next to the code as `*.test.ts` and run with `npm test`.
+**API dev scripts:** `npm run seed --workspace=apps/api` applies the `src/db/seeds` fixtures (one user per role; refuses to run with `NODE_ENV=production`), and `npm run make:init-data --workspace=apps/api -- --role=<role>` prints a signed `Authorization: tma <initData>` header for testing the API locally. Unit tests (`vitest`) live next to the code as `*.test.ts` and run with `npm test` (DB-free). Integration tests are colocated as `*.int.test.ts` and run with `npm run test:integration --workspace=apps/api` against a disposable database derived from `DATABASE_URL` (a `_test` suffix is appended, then created/migrated/reset per run).
 
 ## Conventions for this structure
 - **One table, one repository file.** `repositories/roster.repository.ts` only talks to `roster`. If a query needs a join, it still lives in the repository of the "owning" resource for that operation.
