@@ -13,14 +13,14 @@ Replaces a manual, Google Form-based approval process with a database-backed sys
 
 ## Tech stack
 
-| Layer | Tech |
-|---|---|
-| Backend API | Node.js, Express, TypeScript |
-| Database | PostgreSQL (raw `pg`, no ORM) |
-| Bot | Telegraf |
-| Mini App | React, TypeScript, Telegram Mini Apps SDK |
-| UI | shadcn/ui, Tailwind CSS, Framer Motion |
-| Storage | Google Drive API (large files) |
+| Layer       | Tech                                      |
+| ----------- | ----------------------------------------- |
+| Backend API | Node.js, Express, TypeScript              |
+| Database    | PostgreSQL (raw `pg`, no ORM)             |
+| Bot         | Telegraf                                  |
+| Mini App    | React, TypeScript, Telegram Mini Apps SDK |
+| UI          | shadcn/ui, Tailwind CSS, Framer Motion    |
+| Storage     | Google Drive API (large files)            |
 
 ## Project structure
 
@@ -43,18 +43,18 @@ See [`docs/context/file-structure.md`](docs/context/file-structure.md) for the c
 
 This repo ships with a full context pack under [`docs/context/`](docs/context/), written for both human contributors and AI coding agents:
 
-| Doc | Covers |
-|---|---|
-| [`project-overview.md`](docs/context/project-overview.md) | What this is, why it exists, scope and non-goals |
-| [`architecture.md`](docs/context/architecture.md) | How the bot, Mini App, API, and database fit together |
-| [`file-structure.md`](docs/context/file-structure.md) | Where everything lives |
-| [`database-schema.md`](docs/context/database-schema.md) | Tables, relationships, migration conventions |
-| [`api-reference.md`](docs/context/api-reference.md) | Every endpoint, auth, request/response shape |
-| [`code-standards.md`](docs/context/code-standards.md) | Naming, conventions, testing expectations |
-| [`security.md`](docs/context/security.md) | RBAC, auth, secrets, data protection |
-| [`ui-context.md`](docs/context/ui-context.md) | Design system, color tokens, component/motion guidelines |
-| [`workflows.md`](docs/context/workflows.md) | Step-by-step user journeys for every role |
-| [`developer-map.md`](docs/context/developer-map.md) | Routing guide — which doc to read for a given task |
+| Doc                                                       | Covers                                                   |
+| --------------------------------------------------------- | -------------------------------------------------------- |
+| [`project-overview.md`](docs/context/project-overview.md) | What this is, why it exists, scope and non-goals         |
+| [`architecture.md`](docs/context/architecture.md)         | How the bot, Mini App, API, and database fit together    |
+| [`file-structure.md`](docs/context/file-structure.md)     | Where everything lives                                   |
+| [`database-schema.md`](docs/context/database-schema.md)   | Tables, relationships, migration conventions             |
+| [`api-reference.md`](docs/context/api-reference.md)       | Every endpoint, auth, request/response shape             |
+| [`code-standards.md`](docs/context/code-standards.md)     | Naming, conventions, testing expectations                |
+| [`security.md`](docs/context/security.md)                 | RBAC, auth, secrets, data protection                     |
+| [`ui-context.md`](docs/context/ui-context.md)             | Design system, color tokens, component/motion guidelines |
+| [`workflows.md`](docs/context/workflows.md)               | Step-by-step user journeys for every role                |
+| [`developer-map.md`](docs/context/developer-map.md)       | Routing guide — which doc to read for a given task       |
 
 **Start with `developer-map.md`** if you're picking up a task and aren't sure where to look first.
 
@@ -82,14 +82,14 @@ npm run dev --workspace=apps/miniapp
 
 ### Required environment variables
 
-| App | Variable | Purpose |
-|---|---|---|
-| `api` | `DATABASE_URL` | PostgreSQL connection string |
-| `api` | `BOT_TOKEN` | Used to verify Telegram `initData` (HMAC) |
+| App   | Variable                 | Purpose                                    |
+| ----- | ------------------------ | ------------------------------------------ |
+| `api` | `DATABASE_URL`           | PostgreSQL connection string               |
+| `api` | `BOT_TOKEN`              | Used to verify Telegram `initData` (HMAC)  |
 | `api` | `INTERNAL_SERVICE_TOKEN` | Shared secret for bot → API internal calls |
-| `api` | `DRIVE_API_KEY` | Google Drive service account access |
-| `bot` | `BOT_TOKEN` | Telegram Bot API token |
-| `bot` | `API_BASE_URL` | Where the bot reaches the API service |
+| `api` | `DRIVE_API_KEY`          | Google Drive service account access        |
+| `bot` | `BOT_TOKEN`              | Telegram Bot API token                     |
+| `bot` | `API_BASE_URL`           | Where the bot reaches the API service      |
 
 Full details in each app's `.env.example`.
 

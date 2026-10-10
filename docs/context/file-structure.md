@@ -93,12 +93,7 @@ thd-scholars-repository/
 │   └── workflows/                   # CI: lint, typecheck, test on PR
 │
 ├── package.json                     # workspace root, defines workspaces array
-├── package-lock.json                # npm lockfile — commit it
-├── tsconfig.base.json               # shared compiler options (strict), extended by each app
-├── eslint.config.mjs                # shared ESLint flat config (typescript-eslint + Prettier)
-├── .prettierrc.json                 # shared Prettier config
-├── .prettierignore
-├── .editorconfig
+├── tsconfig.base.json                # shared compiler options, extended by each app
 ├── .gitignore
 └── README.md
 ```

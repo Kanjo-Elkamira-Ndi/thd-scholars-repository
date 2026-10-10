@@ -34,6 +34,14 @@ export const settingsUpdateSchema = z
       .min(300, { message: 'Invite link expiry must be at least 300 seconds' })
       .max(2_592_000, { message: 'Invite link expiry must be 2592000 seconds (30 days) or less' })
       .optional(),
+    maxUploadSizeBytes: z
+      .number({ message: 'Upload size threshold must be a number' })
+      .int({ message: 'Upload size threshold must be a whole number of bytes' })
+      .min(1_048_576, { message: 'Upload size threshold must be at least 1048576 bytes (1 MB)' })
+      .max(2_147_483_647, {
+        message: 'Upload size threshold must be 2147483647 bytes (2 GB) or less',
+      })
+      .optional(),
   })
   .refine(hasAtLeastOneField, { message: 'At least one setting must be provided' });
 
