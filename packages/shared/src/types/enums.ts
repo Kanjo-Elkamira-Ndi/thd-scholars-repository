@@ -8,6 +8,10 @@ export type JoinRequestDeliveryStatus = 'pending' | 'processing' | 'delivered' |
 
 export type ContentFormat = 'audio_lecture' | 'video_seminar' | 'ebook' | 'research_pdf';
 
+export type ContentAction = 'publish' | 'delete';
+
+export type ContentDeliveryStatus = 'pending' | 'processing' | 'posted' | 'failed';
+
 export type DisciplineTag =
   | 'SystematicTheology'
   | 'BiblicalStudies'

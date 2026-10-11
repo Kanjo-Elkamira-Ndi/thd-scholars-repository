@@ -10,4 +10,5 @@ export * from './schemas/roster';
 export * from './schemas/content';
 export * from './schemas/users';
 export * from './schemas/join-requests';
+export * from './schemas/content-tasks';
 export * from './schemas/settings';

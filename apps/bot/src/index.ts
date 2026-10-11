@@ -4,6 +4,7 @@ import { createBot } from './bot';
 import { COMMANDS } from './commands/definitions';
 import { env } from './config/env';
 import { createApiClient } from './services/api-client';
+import { startContentLoop, stopContentLoop } from './services/content-delivery';
 import { startDeliveryLoop, stopDeliveryLoop } from './services/delivery';
 import { logger } from './utils/logger';
 
@@ -33,9 +34,19 @@ const main = async (): Promise<void> => {
     batchSize: env.outboxBatchSize,
   });
 
+  startContentLoop({
+    api,
+    telegram: bot.telegram,
+    channelId: env.botChannelId,
+    logger,
+    intervalMs: env.outboxPollIntervalMs,
+    batchSize: env.contentBatchSize,
+  });
+
   const stop = (signal: string): void => {
     logger.info({ signal }, 'stopping bot');
     stopDeliveryLoop();
+    stopContentLoop();
     bot.stop(signal);
   };
   process.once('SIGINT', () => stop('SIGINT'));

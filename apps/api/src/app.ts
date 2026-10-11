@@ -7,6 +7,7 @@ import { authUser } from './middleware/auth';
 import { errorHandler } from './middleware/error-handler';
 import { internalServiceToken } from './middleware/internal-token';
 import authRoutes from './routes/auth-routes';
+import contentRoutes from './routes/content-routes';
 import healthRoutes from './routes/health-routes';
 import internalRoutes from './routes/internal-routes';
 import registrationsRoutes from './routes/registrations-routes';
@@ -42,6 +43,7 @@ app.use('/api', healthRoutes);
 
 app.use('/api', authUser, authRoutes);
 app.use('/api', authUser, registrationsRoutes);
+app.use('/api', authUser, contentRoutes);
 app.use('/api', authUser, rosterRoutes);
 app.use('/internal', internalServiceToken, internalRoutes);
 

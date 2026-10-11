@@ -20,12 +20,23 @@ Approval has two shapes: a channel `chat_join_request` is approved in place (`ap
 ### Dev-only mock authentication
 For local development and automated tests only: setting `AUTH_MOCK_ENABLED=true` lets a request identify itself with an `X-Mock-User` header instead of a signed `initData`. `env.ts` refuses to boot with `AUTH_MOCK_ENABLED=true` when `NODE_ENV=production`, so this path can never be enabled in production. The header is parsed with a strict schema (`{ id, username?, firstName?, lastName? }`) that rejects any `role` or `email` key — identity can be mocked, but authorization always comes from the database. The mock path is clearly marked in `src/middleware/auth.ts` and logs a warning when used. When the flag is off, the `X-Mock-User` header is ignored entirely.
 
+**Join-request delivery (Phase 8).** The approval/decline decision is persisted on the `join_requests` row and executed by the bot, which polls `POST /internal/join-requests/claim` (leases work), performs the Telegram action, and reports back via `POST /internal/join-requests/:id/complete`. The bot is outbound-only — the API never calls into it — so a bot outage cannot lose a decision; the row waits, and undelivered rows are retried with exponential backoff and marked `failed` (with an `audit_logs` row) after a configurable cap.
+
+### Content delivery (Phase 9)
+The content module reuses the same outbound-only, leased-outbox pattern and adds the following controls.
+- **Drive destination.** Large uploads go to a Google **Shared Drive** (not a personal My Drive) via a service account; the destination folder id is `GOOGLE_DRIVE_FOLDER_ID`. Uploads are resumable with `supportsAllDrives=true`. Files are shared **anyone-with-link, reader** (accepted risk: possession of the link grants read access, but the link is only ever sent to the private channel, never published) and `copyRequiresWriterPermission=true` is set to discourage redistribution.
+- **Drive link integrity:** an inbound `driveLink` must be `https` and its hostname must be `drive.google.com` or `docs.google.com`; anything else is `400 VALIDATION_ERROR`.
+- **Upload hygiene:** multer disk storage; staged files carry UUID names; both the declared MIME and the magic-byte-detected MIME must be in the format whitelist; temp files are unlinked on every terminal path; a missing staged file is a terminal delivery failure. `GET /api/content` `search` escapes `%`, `_`, and `\` before an `ILIKE`.
+- **Caption safety:** user-entered titles are HTML-escaped and hashtags are drawn only from the shared whitelists; captions are truncated to the Telegram limit. Media is sent with the specific Telegram method only for allow-listed MIME types (`audio/*` for mp3/m4a, `video/mp4` for video), otherwise as a document.
+- **Deploy notes:** the reverse proxy must allow large request bodies (`client_max_body_size` above `maxContentUploadBytes`) with generous timeouts, and `CONTENT_STAGING_DIR` must be a persistent volume shared across API replicas (a file staged on one replica is downloaded from another).
+
 ## Authorization (RBAC)
 
 - **Enforced server-side, on every request, at the API layer.** The Mini App hiding a button for a Scholar is a UX nicety, not a security control. Every controller must check the authenticated user's role before executing a privileged action.
 - Role hierarchy for privilege purposes: `admin` > `registrar` / `faculty` (parallel, not ordered relative to each other) > `scholar`.
 - **Admin** holds every privilege. **Registrar** and **Faculty** have non-overlapping privilege sets (roster vs. content) — a Registrar is not implicitly allowed to post content, and Faculty is not implicitly allowed to edit roster status.
 - Ownership checks matter even within a role: Faculty can edit/delete only `content_posts` where `posted_by` matches their `user_id`, enforced in the service layer, not just filtered out of a list view.
+- **Verified-member gate:** `GET /api/content` requires Faculty, Registrar, or Admin, or a Scholar with an `active` roster entry. The roster status is re-queried per request (not cached in the session token), so a Scholar whose status changes loses/regains access immediately; a Scholar without an active entry gets `403 NOT_VERIFIED`.
 - The boundary for member removal: Admin can remove anyone. Registrar may trigger removal **only** for roster entries they themselves flagged as graduated/withdrawn and that have been confirmed (see `workflows.md` — the system does not auto-kick without this confirmation step).
 
 ## Data protection

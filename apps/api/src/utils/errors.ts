@@ -5,6 +5,7 @@ export type ErrorCode =
   | 'NOT_FOUND'
   | 'CONFLICT'
   | 'RATE_LIMITED'
+  | 'NOT_VERIFIED'
   | 'INTERNAL_ERROR'
   | 'VALIDATION_ERROR';
 

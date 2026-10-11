@@ -11,6 +11,9 @@ build/
 *.log
 npm-debug.log*
 
+# Content staging dir (runtime upload residue)
+.staging/
+
 .DS_Store
 .vscode/
 .idea/

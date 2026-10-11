@@ -1,4 +1,6 @@
 import type {
+  ContentAction,
+  ContentDeliveryStatus,
   ContentFormat,
   DisciplineTag,
   JoinRequestDeliveryStatus,
@@ -70,6 +72,10 @@ export interface ContentPost {
   telegramMessageId: number | null;
   driveLink: string | null;
   fileSizeBytes: number | null;
+  pendingAction: ContentAction;
+  deliveryStatus: ContentDeliveryStatus;
+  deliveryAttempts: number;
+  deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }

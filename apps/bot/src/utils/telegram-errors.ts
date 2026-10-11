@@ -1,4 +1,5 @@
 const GONE_MARKERS = ['hide_requester_missing', 'user_already_participant', 'no join request'];
+const MESSAGE_GONE_MARKERS = ['message to delete not found', 'message not found'];
 
 const extractDescription = (err: unknown): string => {
   if (typeof err !== 'object' || err === null) {
@@ -19,4 +20,12 @@ export const isJoinRequestGone = (err: unknown): boolean => {
     return false;
   }
   return GONE_MARKERS.some((marker) => description.includes(marker));
+};
+
+export const isMessageGone = (err: unknown): boolean => {
+  const description = extractDescription(err).toLowerCase();
+  if (description === '') {
+    return false;
+  }
+  return MESSAGE_GONE_MARKERS.some((marker) => description.includes(marker));
 };

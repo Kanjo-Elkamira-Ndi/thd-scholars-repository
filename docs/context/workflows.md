@@ -45,26 +45,26 @@ End-to-end user journeys, mapped to the roles in `project-overview.md` and the e
 3. Confirmed removal calls `POST /api/members/:userId/remove`, logs to `audit_logs`.
 4. This two-step design (flag → confirm) exists specifically so no student is auto-kicked by a data-entry change without a human checkpoint — see FR20.
 
-## 5. Faculty Posts Content
+## 5. Faculty Posts Content — implemented (Phase 9)
 **Actor:** Faculty
 **Trigger:** new lecture/seminar/resource ready to share.
 
 1. Faculty opens Mini App → Content → New Post.
 2. Faculty fills in Title, Discipline tag, Format tag, Cohort (optional), and either uploads a file or pastes a Drive link.
-3. **If file size exceeds the configured threshold:** Mini App uploads directly to Drive, sends the resulting `driveLink` to the API.
-4. **Otherwise:** file is sent to the API, which hands it to the Bot Service for direct Telegram upload.
-5. API creates the `content_posts` row (`POST /api/content`), triggers Bot Service to post the formatted message to the channel using the discipline/format/cohort hashtag convention established in Phase 1.
-6. Bot confirms the post via `POST /internal/content/:id/confirm`, API stores `telegram_message_id`.
-7. Post appears in the searchable content index (`GET /api/content`) for all verified Scholars.
+3. **Size routing:** the API verifies the declared and magic-byte MIME against the format whitelist. A file at or below `maxUploadSizeBytes` (the Drive threshold) is staged on disk for a Telegram upload; a file above it is uploaded resumably to a Shared Drive and only the share link (`https://drive.google.com/…`) is stored. Anything above `maxContentUploadBytes` is rejected (`400`).
+4. API creates the `content_posts` row with `pending_action = 'publish'` (`POST /api/content`) and writes a `content_created` audit row in the same transaction.
+5. The Bot Service outbox loop leases the task (`POST /internal/content/claim`), renders the channel template, and posts it — `sendMessage` for a Drive link, or `sendAudio`/`sendVideo`/`sendDocument` for a staged file it fetches from `GET /internal/content/:id/download`.
+6. Bot confirms via `POST /internal/content/:id/confirm` (`outcome: 'posted'`); the API stores `telegram_message_id` and clears the staged file. A failed send is retried with backoff until `CONTENT_DELIVERY_MAX_ATTEMPTS`, then marked `failed` with a `content_delivery_failed` audit row.
+7. Post appears in the searchable content index (`GET /api/content`) for verified members.
 
-## 6. Content Edit/Removal
+## 6. Content Edit/Removal — implemented (Phase 9)
 **Actor:** Faculty (own posts) or Admin (any post)
 **Trigger:** correction needed, or content no longer relevant.
 
 1. User opens the post from the content index, selects Edit or Remove.
 2. API enforces ownership (Faculty limited to `posted_by = self`) before allowing the mutation — see `security.md`.
-3. Edit: `PATCH /api/content/:id` updates metadata (does not re-post to the channel; channel message caption update is a nice-to-have, not required for launch).
-4. Remove: `DELETE /api/content/:id` attempts to delete the Telegram channel message and removes the index entry; logs to `audit_logs`.
+3. Edit: `PATCH /api/content/:id` updates metadata (does not re-post to the channel) and writes a `content_updated` audit row.
+4. Remove: a post that was never claimed by the bot is hard-deleted and its staged file unlinked immediately; an already-published post is soft-deleted and `pending_action = 'delete'` so the bot deletes the channel message on its next tick. If a publish confirms after a delete was queued, the message id is stored but the delete is **never** cancelled (the message is still removed). A delete of an already-gone message counts as success. Every delete writes a `content_deleted` audit row.
 
 ## 7. Admin Assigns/Changes a Role
 **Actor:** Admin

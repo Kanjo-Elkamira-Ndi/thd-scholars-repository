@@ -65,23 +65,31 @@ Returns the quarterly-audit view: roster entries whose status no longer matches 
 ## Content (Faculty + Admin)
 
 ### `GET /api/content`
-Searchable/filterable content index.
-- **Auth:** any verified Scholar and above.
-- **Query params:** `discipline`, `format`, `cohortYear`, `search`, `page`, `pageSize`.
+Searchable/filterable content index of published/non-deleted posts.
+- **Auth:** verified member — Faculty, Registrar, Admin, and Scholars with an `active` roster entry. A Scholar without an active entry gets `403 NOT_VERIFIED`.
+- **Query params:** `discipline`, `format`, `cohortYear`, `search`, `page` (default `1`), `pageSize` (default `20`, max `100`); unknown/`enum`-mismatched values → `400 VALIDATION_ERROR`.
+- **Response:** `200 { items: ContentPost[], total, page, pageSize }`. `search` is matched with an escaped `ILIKE` (`%`/`_`/`\` treated literally).
 
 ### `POST /api/content`
-Create a content post. Triggers the bot to publish to the channel.
+Create a content post. The API inserts the row and the Bot Service publishes it (see the delivery loop below).
 - **Auth:** Faculty, Admin.
-- **Body:** `{ title, disciplineTag, formatTag, cohortYear?, driveLink? }` plus a file upload (multipart) when not using a Drive link.
-- **Response:** `{ contentPost: ContentPost }` — `telegramMessageId` populated once the bot confirms the post (may require polling or a webhook callback — see `workflows.md`).
+- **Content-Type:** `application/json` (Drive link) **or** `multipart/form-data` (file). Exactly one of `driveLink` or a file, never both.
+- **Body:** `title` (≤150), `disciplineTag`, `formatTag`, `cohortYear?`, plus `driveLink?` (must be `https` on `drive.google.com`/`docs.google.com`) **or** a file part (multipart only).
+- **Routing:** declared and magic-byte-detected MIME must both be in the format whitelist; a file ≤ the Drive threshold is staged for a Telegram upload, a file above it is uploaded to a Shared Drive and only the share link is stored. A file above `maxContentUploadBytes` → `400`.
+- **Response:** `201 { contentPost: ContentPost }` — `telegramMessageId` is populated once the bot confirms.
+- **Side effects:** `content_created` `audit_logs` row in the same transaction as the insert.
 
 ### `PATCH /api/content/:id`
-Edit a content post's metadata.
-- **Auth:** Admin (any post), Faculty (own posts only — enforced server-side, not just hidden in UI).
+Edit a content post's metadata (`title`, `disciplineTag`, `formatTag`, `cohortYear`).
+- **Auth:** Admin (any post), Faculty (own posts only — enforced server-side, not just hidden in UI). Non-owner Faculty → `403 FORBIDDEN`.
+- **Side effects:** `content_updated` `audit_logs` row recording the title and changed fields.
 
 ### `DELETE /api/content/:id`
-Remove a content post (also attempts to delete the channel message).
+Remove a content post and (when it was published) queue the channel-message delete.
 - **Auth:** Admin (any post), Faculty (own posts only).
+- **Lifecycle:** a post that was never claimed (`delivery_attempts = 0`, `delivery_status = 'pending'`, no `telegram_message_id`) is hard-deleted and its staged file unlinked immediately; otherwise it is soft-deleted (`deleted_at`, `pending_action = 'delete'`) and the bot deletes the channel message on the next tick. A delete confirmation of an already-gone message is treated as success.
+- **Response:** `200 { hardDeleted: boolean }`.
+- **Side effects:** `content_deleted` `audit_logs` row (includes the title).
 
 ## Membership & Access Control
 
@@ -157,8 +165,23 @@ Read a user's verification status for the Bot Service (`/mystatus`). Read-only.
 - **Response:** `200 { user: User, roster: RosterEntry | null }` (same shape as `GET /api/me`).
 - **Errors:** `400 VALIDATION_ERROR`, `404 NOT_FOUND` (unknown user).
 
+### `POST /internal/content/claim`
+Lease up to `limit` content posts that need publishing or channel-message deletion.
+- **Body:** `{ limit?: number }` (1–100, optional; defaults to `CONTENT_DELIVERY_BATCH_SIZE`).
+- **Response:** `200 { items: ContentDeliveryTask[] }` — each item carries `{ id, action: 'publish' | 'delete', title, disciplineTag, formatTag, cohortTag, telegramMessageId, driveLink, hasStagedFile, stagedMimeType, stagedOriginalName }`.
+- **Behaviour:** first reclaims stale leases (`processing` older than `CONTENT_DELIVERY_LEASE_SECONDS`), then leases claimable rows, marking them `processing` and incrementing `delivery_attempts`. A task whose staged file is missing on disk is failed terminally here (with a `content_delivery_failed` audit row) and omitted from the batch.
+
 ### `POST /internal/content/:id/confirm`
-Bot confirms it posted to the channel; API stores `telegramMessageId`.
+Bot reports the outcome of a leased content task; the API finalizes the `content_posts` row.
+- **Path param:** `id` must be a UUID (else `400 VALIDATION_ERROR`).
+- **Body:** `{ outcome: 'posted' | 'deleted' | 'failed', telegramMessageId?, error?, terminal? }` (`completeContentTaskSchema`; `telegramMessageId` is required when `outcome = 'posted'`).
+- **Response:** `200 { deliveryStatus: ContentDeliveryStatus, hardDeleted?: true }`.
+- **Behaviour:** `posted` stores `telegram_message_id`, clears the staged file, and — if a delete was queued mid-publish — keeps `pending_action = 'delete'` so the message is still removed later (never resurrects); a confirm for an already-removed row is a `200 { deliveryStatus: 'posted' }` no-op. `deleted` unlinks the staged file and hard-deletes the row (repeated confirms are idempotent success). `failed` reschedules with `computeBackoffSeconds(attempts)` unless terminal or `attempts >= CONTENT_DELIVERY_MAX_ATTEMPTS`, in which case the row is marked failed and a `content_delivery_failed` audit row (with the title) is written.
+
+### `GET /internal/content/:id/download`
+Stream the staged bytes for a file-routed post so the bot can upload them to Telegram.
+- **Path param:** `id` must be a UUID (else `400 VALIDATION_ERROR`).
+- **Response:** `200` with the stored `Content-Type` and `Content-Disposition: attachment; filename="…"`; `404 NOT_FOUND` when the post, its staged file name, or the file on disk is absent.
 
 ## Conventions
 - All list endpoints are paginated by default (`page`, `pageSize`, default `pageSize=20`, max `100`).

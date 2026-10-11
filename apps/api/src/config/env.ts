@@ -26,6 +26,13 @@ const EnvSchema = z
     JOIN_REQUEST_DELIVERY_BACKOFF_BASE_SECONDS: z.coerce.number().int().positive().default(60),
     JOIN_REQUEST_DELIVERY_LEASE_SECONDS: z.coerce.number().int().positive().default(120),
     JOIN_REQUEST_DELIVERY_BATCH_SIZE: z.coerce.number().int().positive().default(10),
+    CONTENT_STAGING_DIR: z.string().min(1).default('.staging/content'),
+    CONTENT_DELIVERY_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
+    CONTENT_DELIVERY_BACKOFF_BASE_SECONDS: z.coerce.number().int().positive().default(60),
+    CONTENT_DELIVERY_LEASE_SECONDS: z.coerce.number().int().positive().default(120),
+    CONTENT_DELIVERY_BATCH_SIZE: z.coerce.number().int().positive().default(10),
+    GOOGLE_SERVICE_ACCOUNT_JSON: z.string().min(1).optional(),
+    GOOGLE_DRIVE_FOLDER_ID: z.string().min(1).optional(),
   })
   .superRefine((data, ctx) => {
     if (data.AUTH_MOCK_ENABLED && data.NODE_ENV === 'production') {

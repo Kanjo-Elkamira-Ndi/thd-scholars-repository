@@ -71,6 +71,59 @@ describe('createApiClient.getUserStatus', () => {
     );
   });
 
+  it('claims content tasks with an empty body by default', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ items: [] }));
+    const api = createApiClient({ ...options, fetchImpl });
+
+    const result = await api.claimContentTasks();
+
+    expect(result).toEqual({ items: [] });
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'http://api.test/internal/content/claim',
+      expect.objectContaining({ method: 'POST', body: '{}' }),
+    );
+  });
+
+  it('confirms a content task on the id-scoped endpoint', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ deliveryStatus: 'posted' }));
+    const api = createApiClient({ ...options, fetchImpl });
+
+    const result = await api.completeContentTask('c-1', { outcome: 'posted', telegramMessageId: 5 });
+
+    expect(result).toEqual({ deliveryStatus: 'posted' });
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'http://api.test/internal/content/c-1/confirm',
+      expect.objectContaining({
+        method: 'POST',
+        body: '{"outcome":"posted","telegramMessageId":5}',
+      }),
+    );
+  });
+
+  it('downloads content bytes with the mime type and file name', async () => {
+    const bytes = new TextEncoder().encode('hi').buffer;
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({
+        'content-type': 'application/pdf',
+        'content-disposition': 'attachment; filename="book.pdf"',
+      }),
+      arrayBuffer: async () => bytes,
+    });
+    const api = createApiClient({ ...options, fetchImpl });
+
+    const result = await api.downloadContent('c-2');
+
+    expect(result.mimeType).toBe('application/pdf');
+    expect(result.fileName).toBe('book.pdf');
+    expect(new TextDecoder().decode(result.body)).toBe('hi');
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'http://api.test/internal/content/c-2/download',
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
+
   it('throws BotApiError with the API error code on a non-2xx response', async () => {
     const fetchImpl = vi
       .fn()

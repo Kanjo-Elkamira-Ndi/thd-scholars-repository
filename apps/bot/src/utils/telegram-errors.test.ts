@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isJoinRequestGone } from './telegram-errors';
+import { isJoinRequestGone, isMessageGone } from './telegram-errors';
 
 describe('isJoinRequestGone', () => {
   it('matches HIDE_REQUESTER_MISSING', () => {
@@ -25,5 +25,26 @@ describe('isJoinRequestGone', () => {
     expect(isJoinRequestGone(new Error('chat not found'))).toBe(false);
     expect(isJoinRequestGone(undefined)).toBe(false);
     expect(isJoinRequestGone('')).toBe(false);
+  });
+});
+
+describe('isMessageGone', () => {
+  it('matches "message to delete not found"', () => {
+    expect(isMessageGone(new Error('400: Bad Request: message to delete not found'))).toBe(true);
+  });
+
+  it('matches a bare "message not found" description', () => {
+    expect(isMessageGone({ response: { description: 'Bad Request: message not found' } })).toBe(
+      true,
+    );
+  });
+
+  it('matches case-insensitively', () => {
+    expect(isMessageGone({ description: 'MESSAGE NOT FOUND' })).toBe(true);
+  });
+
+  it('does not match unrelated errors', () => {
+    expect(isMessageGone(new Error('429 Too Many Requests'))).toBe(false);
+    expect(isMessageGone(null)).toBe(false);
   });
 });

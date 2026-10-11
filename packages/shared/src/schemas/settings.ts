@@ -38,8 +38,16 @@ export const settingsUpdateSchema = z
       .number({ message: 'Upload size threshold must be a number' })
       .int({ message: 'Upload size threshold must be a whole number of bytes' })
       .min(1_048_576, { message: 'Upload size threshold must be at least 1048576 bytes (1 MB)' })
-      .max(2_147_483_647, {
-        message: 'Upload size threshold must be 2147483647 bytes (2 GB) or less',
+      .max(52_428_800, {
+        message: 'Upload size threshold must be 52428800 bytes (50 MB) or less (Telegram limit)',
+      })
+      .optional(),
+    maxContentUploadBytes: z
+      .number({ message: 'Max content upload size must be a number' })
+      .int({ message: 'Max content upload size must be a whole number of bytes' })
+      .min(1_048_576, { message: 'Max content upload size must be at least 1048576 bytes (1 MB)' })
+      .max(2_147_483_648, {
+        message: 'Max content upload size must be 2147483648 bytes (2 GB) or less',
       })
       .optional(),
   })

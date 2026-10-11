@@ -1,3 +1,5 @@
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { defineConfig } from 'vitest/config';
 import { resolveTestDatabaseInfo } from './src/db/testing/test-database';
 
@@ -18,6 +20,7 @@ export default defineConfig({
       API_INTERNAL_TOKEN: 'test-internal-token',
       MINIAPP_ORIGIN: 'http://localhost:5173',
       DATABASE_URL: url,
+      CONTENT_STAGING_DIR: join(tmpdir(), 'thd-content-test'),
       AUTH_MOCK_ENABLED: 'false',
       REGISTRATION_RATE_LIMIT_WINDOW_SECONDS: '900',
       REGISTRATION_RATE_LIMIT_MAX: '1000',

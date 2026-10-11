@@ -100,10 +100,17 @@ npm run dev --workspace=apps/miniapp
 | `api` | `JOIN_REQUEST_DELIVERY_BACKOFF_BASE_SECONDS` | Exponential-backoff base for delivery retries (default `60`) |
 | `api` | `JOIN_REQUEST_DELIVERY_LEASE_SECONDS` | Processing lease before a claim is reclaimed (default `120`) |
 | `api` | `JOIN_REQUEST_DELIVERY_BATCH_SIZE` | Max tasks returned per claim when no `limit` is sent (default `10`) |
+| `api` | `CONTENT_STAGING_DIR` | Persistent dir for files routed to Telegram (default `.staging/content`) |
+| `api` | `CONTENT_DELIVERY_MAX_ATTEMPTS` | Content publish/delete retries before a post is marked failed (default `5`) |
+| `api` | `CONTENT_DELIVERY_BACKOFF_BASE_SECONDS` | Exponential-backoff base for content delivery retries (default `60`) |
+| `api` | `CONTENT_DELIVERY_LEASE_SECONDS` | Processing lease before a content claim is reclaimed (default `120`) |
+| `api` | `CONTENT_DELIVERY_BATCH_SIZE` | Max content tasks returned per claim (default `10`) |
+| `api` | `GOOGLE_SERVICE_ACCOUNT_JSON` | Service-account JSON used to upload large files to a Shared Drive (optional; unset disables Drive routing) |
+| `api` | `GOOGLE_DRIVE_FOLDER_ID` | Destination Shared Drive folder id (optional) |
 | `bot` | `BOT_TOKEN`                 | Telegram Bot API token                     |
 | `bot` | `API_BASE_URL`              | Where the bot reaches the API service      |
 
-`BOT_TOKEN` is now required by the API as well — it is the HMAC key the API uses to verify Telegram `initData`. `DRIVE_API_KEY` (Google Drive uploads) will be added alongside that feature and is not required yet.
+`BOT_TOKEN` is now required by the API as well — it is the HMAC key the API uses to verify Telegram `initData`. Drive routing needs `GOOGLE_SERVICE_ACCOUNT_JSON` **and** `GOOGLE_DRIVE_FOLDER_ID`: the service account must have access to a Shared Drive, and `CONTENT_STAGING_DIR` must be a persistent volume shared across API replicas.
 
 Full details in each app's `.env.example`.
 
@@ -120,6 +127,7 @@ Runs as a separate process from the API. It holds only the bot token and the int
 | `BOT_CHANNEL_ID`     | Channel id or `@username` for join-request delivery and invite links    |
 | `BOT_OUTBOX_POLL_INTERVAL_MS` | Join-request delivery poll cadence in ms (default `5000`)      |
 | `BOT_OUTBOX_BATCH_SIZE` | Max join-request delivery tasks per poll (default `10`)              |
+| `BOT_CONTENT_BATCH_SIZE` | Max content publish/delete tasks per poll (default `10`)           |
 | `BOT_MODE`           | `polling` (dev) or `webhook` (prod); defaults from `NODE_ENV` when unset |
 | `BOT_WEBHOOK_DOMAIN` | Public HTTPS origin — required when `BOT_MODE=webhook`                  |
 | `BOT_WEBHOOK_PATH`   | Webhook path (default `/telegram/webhook`)                              |

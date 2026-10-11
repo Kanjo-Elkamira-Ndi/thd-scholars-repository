@@ -65,7 +65,7 @@ A React + TypeScript single-page app, rendered inside Telegram's in-app browser 
 Single Postgres instance, raw `pg` driver, no ORM. See `database-schema.md` for full schema. Migrations are plain SQL files, versioned and applied in order (see `file-structure.md` for the migrations directory).
 
 ### 5. Cloud Storage
-Large video files are uploaded from the Mini App directly to Google Drive (service account) above a configurable size threshold; the bot posts the Drive link + thumbnail to the channel instead of a raw Telegram upload. Smaller files may be posted directly to Telegram.
+Large files (above the configurable Drive threshold) are streamed by the API to a Google Shared Drive (service account) and the bot posts the share link to the channel instead of a raw Telegram upload. Smaller files are uploaded to Telegram through the Bot Service. The Mini App never talks to Drive directly.
 
 ## Data flow: Registration (the critical path)
 1. User opens the bot → taps a deep link into the Mini App registration form.
@@ -76,12 +76,11 @@ Large video files are uploaded from the Mini App directly to Google Drive (servi
 6. Bot sends the user the approval/decline message.
 7. API logs the action to `audit_logs`.
 
-## Data flow: Content posting
-1. Faculty opens Mini App → Content → New Post, fills in metadata and uploads a file.
-2. If file exceeds the size threshold, Mini App uploads directly to Drive and sends the resulting link to the API; otherwise the file itself is sent to the API, which hands it to the bot for a direct Telegram upload.
-3. API writes a `content_posts` row.
-4. API triggers the Bot Service to post the formatted message to the channel using the templates in `workflows.md`.
-5. Bot returns the `telegram_message_id`, which the API stores against the `content_posts` row for future edit/removal.
+## Data flow: Content posting (Phase 9 — implemented)
+1. Faculty opens Mini App → Content → New Post, fills in metadata and either uploads a file or pastes a Drive link.
+2. **Size routing happens at the API, not the Mini App.** A file at or below the Drive threshold (`maxUploadSizeBytes`) is staged on disk and uploaded through the Bot Service to Telegram (Telegram caps a single bot upload at 50 MB). A file above the threshold is streamed resumably by the API to a Google **Shared Drive**, and only the share link is stored — this is the path for large media; there is no "direct-to-Telegram 2 GB upload". Anything above `maxContentUploadBytes` is rejected.
+3. The API writes the `content_posts` row with `pending_action = 'publish'` (`201`, immediate — no external call in the request path).
+4. The Bot Service outbox loop leases the task, posts the formatted message, and confirms; the API stores `telegram_message_id`. Undelivered posts are retried with backoff and marked failed after a cap.
 
 ## Why a shared API instead of the bot and Mini App each owning logic
 Two independent implementations of "is this user allowed to do X" is how RBAC bugs happen. The API is the only place authorization decisions are made; both the bot and the Mini App are callers, not deciders. See `security.md`.

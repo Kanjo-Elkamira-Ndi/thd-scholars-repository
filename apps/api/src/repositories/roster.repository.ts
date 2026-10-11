@@ -62,6 +62,21 @@ export const getRosterByUserId = async (
   return rows.length ? mapRosterRow(rows[0]) : null;
 };
 
+export const getActiveRosterByUserId = async (
+  userId: string,
+  db: Db = pool,
+): Promise<RosterEntry | null> => {
+  const { rows } = await db.query<RosterRow>(
+    `SELECT ${ROSTER_COLUMNS}
+     FROM roster
+     WHERE user_id = $1 AND status = 'active'
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [userId],
+  );
+  return rows.length ? mapRosterRow(rows[0]) : null;
+};
+
 export const findByRegistrationId = async (
   registrationId: string,
   db: Db = pool,

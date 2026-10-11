@@ -94,8 +94,20 @@ Metadata for every item posted to the channel through the system (content posted
 | `telegram_message_id` | `bigint` | nullable until the bot confirms the post |
 | `drive_link` | `text` | nullable — set when file exceeds the size threshold |
 | `file_size_bytes` | `bigint` | nullable |
+| `pending_action` | `text` | not null, default `'none'` — `none` / `publish` / `delete` (migration `0009`) |
+| `delivery_status` | `text` | not null, default `'pending'` — `pending` / `processing` / `posted` / `failed` |
+| `delivery_attempts` | `integer` | not null, default `0` |
+| `next_attempt_at` | `timestamptz` | nullable — retry/backoff schedule and queue gate |
+| `delivery_claimed_at` | `timestamptz` | nullable — lease timestamp |
+| `delivery_error` | `text` | nullable — last failure message |
+| `deleted_at` | `timestamptz` | nullable — soft-delete marker |
+| `staged_file_name` | `text` | nullable — UUID file name under `CONTENT_STAGING_DIR` |
+| `staged_mime_type` | `text` | nullable |
+| `staged_original_name` | `text` | nullable — original upload filename, echoed on download |
 | `created_at` | `timestamptz` | default `now()` |
 | `updated_at` | `timestamptz` | default `now()` |
+
+Delivery columns and indexes come from migration `0009_content_delivery.sql`: a partial queue index on `next_attempt_at WHERE pending_action <> 'none' AND delivery_status = 'pending'`, a partial `processing` index on `delivery_claimed_at`, and a partial active index on `(created_at DESC) WHERE deleted_at IS NULL`.
 
 ### `audit_logs`
 Append-only. Every privileged action writes a row here.
@@ -138,6 +150,7 @@ users 1───* audit_logs        (via audit_logs.actor_user_id)
 0006_settings.sql
 0007_roster_access_review.sql
 0008_join_request_delivery.sql
+0009_content_delivery.sql
 ```
 
 `schema_migrations` (created by the runner in `apps/api/src/db/migrate.ts`): one row per applied migration — `name` (primary key, the filename) and `applied_at`. Never edited; the runner appends to it.
@@ -147,7 +160,7 @@ Key-value store for system configuration (seeded by migration `0006`, read/writt
 
 | Column | Type | Notes |
 |---|---|---|
-| `key` | `text` PK | e.g. `registrationIdPattern`, `availableCohortYears`, `inviteLinkExpirySeconds`, `maxUploadSizeBytes` |
+| `key` | `text` PK | e.g. `registrationIdPattern`, `availableCohortYears`, `inviteLinkExpirySeconds`, `maxUploadSizeBytes` (Drive threshold, default `47185920`), `maxContentUploadBytes` (hard cap, default `524288000`, max 2 GB) |
 | `value` | `jsonb` | not null — arbitrary shape per key |
 | `updated_by` | `uuid` FK → `users.id` | nullable — who last changed the value |
 | `updated_at` | `timestamptz` | default `now()` |
