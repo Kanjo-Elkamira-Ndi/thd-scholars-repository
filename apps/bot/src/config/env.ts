@@ -10,6 +10,9 @@ export interface BotEnv {
   apiBaseUrl: string;
   apiInternalToken: string;
   miniAppUrl: string;
+  botChannelId: string;
+  outboxPollIntervalMs: number;
+  outboxBatchSize: number;
   apiTimeoutMs: number;
   mode: 'polling' | 'webhook';
   webhook?: { domain: string; path: string; secretToken: string; port: number };
@@ -21,6 +24,9 @@ const RawEnvSchema = z.object({
   API_BASE_URL: z.string().url().default('http://localhost:3000'),
   API_INTERNAL_TOKEN: z.string().min(1, 'API_INTERNAL_TOKEN is required'),
   MINIAPP_URL: z.string().min(1, 'MINIAPP_URL is required'),
+  BOT_CHANNEL_ID: z.string().min(1, 'BOT_CHANNEL_ID is required'),
+  BOT_OUTBOX_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5000),
+  BOT_OUTBOX_BATCH_SIZE: z.coerce.number().int().positive().default(10),
   BOT_MODE: z.enum(['polling', 'webhook']).optional(),
   BOT_WEBHOOK_DOMAIN: z.string().url().optional(),
   BOT_WEBHOOK_PATH: z.string().min(1).default('/telegram/webhook'),
@@ -46,6 +52,9 @@ export const parseEnv = (raw: NodeJS.ProcessEnv): BotEnv => {
     apiBaseUrl: data.API_BASE_URL,
     apiInternalToken: data.API_INTERNAL_TOKEN,
     miniAppUrl: data.MINIAPP_URL,
+    botChannelId: data.BOT_CHANNEL_ID,
+    outboxPollIntervalMs: data.BOT_OUTBOX_POLL_INTERVAL_MS,
+    outboxBatchSize: data.BOT_OUTBOX_BATCH_SIZE,
     apiTimeoutMs: data.API_TIMEOUT_MS,
     mode,
   };

@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({
   getRegistrationIdPattern: vi.fn(),
   findByRegistrationId: vi.fn(),
   setRosterUserId: vi.fn(),
-  insertJoinRequest: vi.fn(),
+  decideJoinRequest: vi.fn(),
   insertAuditLog: vi.fn(),
   updateUserProfile: vi.fn(),
   countRecentDeclines: vi.fn(),
@@ -21,7 +21,7 @@ vi.mock('../repositories/roster.repository', () => ({
   setRosterUserId: mocks.setRosterUserId,
 }));
 vi.mock('../repositories/join-requests.repository', () => ({
-  insertJoinRequest: mocks.insertJoinRequest,
+  decideJoinRequest: mocks.decideJoinRequest,
   countRecentDeclines: mocks.countRecentDeclines,
 }));
 vi.mock('../repositories/audit-logs.repository', () => ({
@@ -85,7 +85,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.getRegistrationIdPattern.mockResolvedValue('^DIBI-THD-\\d{4}$');
   mocks.withTransaction.mockImplementation(async (fn: (c: unknown) => unknown) => fn('client'));
-  mocks.insertJoinRequest.mockResolvedValue({ id: 'jr-1' });
+  mocks.decideJoinRequest.mockResolvedValue({ id: 'jr-1' });
   mocks.insertAuditLog.mockResolvedValue({ id: 'al-1' });
   mocks.countRecentDeclines.mockResolvedValue(0);
   mocks.updateUserProfile.mockResolvedValue(baseUser);
@@ -108,8 +108,8 @@ describe('submitRegistration', () => {
       },
       'client',
     );
-    expect(mocks.insertJoinRequest).toHaveBeenCalledWith(
-      { userId: 'user-1', status: 'approved', decidedBy: null, reason: null },
+    expect(mocks.decideJoinRequest).toHaveBeenCalledWith(
+      { userId: 'user-1', decision: 'approved', reason: null },
       'client',
     );
     expect(mocks.insertAuditLog.mock.calls[0][0].action).toBe('approve_join_request');

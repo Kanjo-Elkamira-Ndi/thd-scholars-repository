@@ -96,6 +96,10 @@ npm run dev --workspace=apps/miniapp
 | `api` | `REGISTRATION_RATE_LIMIT_MAX` | Max registration attempts per window (default `5`) |
 | `api` | `REPEATED_REGISTRATION_FAILURE_THRESHOLD` | Declines within the window before the repeated-failure hook fires (default `3`) |
 | `api` | `REPEATED_REGISTRATION_FAILURE_WINDOW_SECONDS` | Window for counting repeated declines (default `86400`) |
+| `api` | `JOIN_REQUEST_DELIVERY_MAX_ATTEMPTS` | Delivery retries before a join request is marked failed (default `5`) |
+| `api` | `JOIN_REQUEST_DELIVERY_BACKOFF_BASE_SECONDS` | Exponential-backoff base for delivery retries (default `60`) |
+| `api` | `JOIN_REQUEST_DELIVERY_LEASE_SECONDS` | Processing lease before a claim is reclaimed (default `120`) |
+| `api` | `JOIN_REQUEST_DELIVERY_BATCH_SIZE` | Max tasks returned per claim when no `limit` is sent (default `10`) |
 | `bot` | `BOT_TOKEN`                 | Telegram Bot API token                     |
 | `bot` | `API_BASE_URL`              | Where the bot reaches the API service      |
 
@@ -113,6 +117,9 @@ Runs as a separate process from the API. It holds only the bot token and the int
 | `API_BASE_URL`       | Base URL of the API service (default `http://localhost:3000`)           |
 | `API_INTERNAL_TOKEN` | Internal service token — **must match the API's `API_INTERNAL_TOKEN`**  |
 | `MINIAPP_URL`        | Deep-link target for the `/start` "Open Registration" button            |
+| `BOT_CHANNEL_ID`     | Channel id or `@username` for join-request delivery and invite links    |
+| `BOT_OUTBOX_POLL_INTERVAL_MS` | Join-request delivery poll cadence in ms (default `5000`)      |
+| `BOT_OUTBOX_BATCH_SIZE` | Max join-request delivery tasks per poll (default `10`)              |
 | `BOT_MODE`           | `polling` (dev) or `webhook` (prod); defaults from `NODE_ENV` when unset |
 | `BOT_WEBHOOK_DOMAIN` | Public HTTPS origin — required when `BOT_MODE=webhook`                  |
 | `BOT_WEBHOOK_PATH`   | Webhook path (default `/telegram/webhook`)                              |

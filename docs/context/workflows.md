@@ -4,16 +4,18 @@ End-to-end user journeys, mapped to the roles in `project-overview.md` and the e
 
 ## 1. Scholar Registration (new user)
 **Actor:** unverified user → Scholar
-**Trigger:** user taps "Request to Join" on the Telegram channel, or opens the bot directly.
+**Trigger:** user taps "Request to Join" on the Telegram channel (Path 1), or opens the bot / Mini App directly (Path 2).
 
 1. Bot's `/start` message explains the process and its "Open Registration" inline button deep-links (via `MINIAPP_URL`) into the Mini App registration form. After registering, the user can run `/mystatus` in the bot to see their current roster status.
-2. User fills out: Full Name, DIBI Registration ID, Cohort Year, Email, Telegram Username (auto-filled), Program Track, Supervisor (optional), Declaration checkbox.
-3. Mini App submits `POST /api/registrations`.
-4. API validates the Registration ID format (against the configurable regex), looks up `roster` by `registration_id`.
-5. **If matched and `status = active`:** API marks `join_requests.status = approved`, links the roster row to the user, stamps the user's profile, and writes an `audit_logs` row in the same transaction. *The Bot Service call → `approveChatJoinRequest` (and the welcome message) is deferred to the Bot Service phase — this phase only records the decision.*
-6. **If no match, or matched but not active:** API marks `join_requests.status = declined` with a `reason`, and writes an `audit_logs` row. *The Bot Service call → `declineChatJoinRequest` (and the "contact the registrar" message) is deferred to the Bot Service phase.*
-7. API writes an `audit_logs` entry either way.
-8. If the same `telegram_id` fails validation/matching repeatedly (threshold configurable), API notifies Registrar/Admin per FR27.
+2. **Path 1 (channel request):** when the user taps "Request to Join", Telegram emits `chat_join_request`; the bot records it via `POST /internal/join-requests` (upserting the user and a `pending` `join_requests` row with the channel `chat_id`) and DMs the requester a "Complete Registration" button to the Mini App. Path 2 (no channel request) skips this step.
+3. User fills out: Full Name, DIBI Registration ID, Cohort Year, Email, Telegram Username (auto-filled), Program Track, Supervisor (optional), Declaration checkbox.
+4. Mini App submits `POST /api/registrations`.
+5. API validates the Registration ID format (against the configurable regex), looks up `roster` by `registration_id`.
+6. **If matched and `status = active`:** API marks `join_requests.status = approved`, links the roster row to the user, stamps the user's profile, and writes an `audit_logs` row in the same transaction. The decision also **enqueues a delivery task** on the same row (`delivery_status = 'pending'`), updating an open `pending` `chat_join_request` row in place so its `chat_id` is preserved; otherwise a new decided row with `chat_id = null` is created.
+7. **If no match, or matched but not active:** API marks `join_requests.status = declined` with a `reason`, and writes an `audit_logs` row; the delivery task is enqueued the same way.
+8. **Delivery (Bot Service outbox loop):** the bot periodically claims decided tasks (`POST /internal/join-requests/claim`) and executes them — for Path 1, `approveChatJoinRequest`/`declineChatJoinRequest` followed by the approval/decline DM; for Path 2 approval, a single-use invite link (`createChatInviteLink`, `member_limit: 1`, expiring after `inviteLinkExpirySeconds`) DM'd to the user. It then reports `POST /internal/join-requests/:id/complete`. A delivery that fails (e.g. the bot was down, or a DM was blocked) is retried with exponential backoff up to `JOIN_REQUEST_DELIVERY_MAX_ATTEMPTS`; after that it is marked `failed` and an `audit_logs` row is written. A request that has already disappeared (`HIDE_REQUESTER_MISSING`/`USER_ALREADY_PARTICIPANT`) is treated as delivered if the user is already a member, otherwise it falls back to the invite link.
+9. API writes an `audit_logs` entry either way.
+10. If the same `telegram_id` fails validation/matching repeatedly (threshold configurable), API notifies Registrar/Admin per FR27.
 
 ## 2. Registrar Updates Enrollment Status
 **Actor:** Registrar

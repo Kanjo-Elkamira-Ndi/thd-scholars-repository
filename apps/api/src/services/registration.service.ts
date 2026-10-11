@@ -35,8 +35,8 @@ export const submitRegistration = async ({
         : 'No matching roster entry found';
     const decision: RegistrationResult['decision'] = approved ? 'approved' : 'declined';
 
-    const joinRequest = await joinRepo.insertJoinRequest(
-      { userId: user.id, status: approved ? 'approved' : 'declined', decidedBy: null, reason },
+    const joinRequest = await joinRepo.decideJoinRequest(
+      { userId: user.id, decision, reason },
       client,
     );
 

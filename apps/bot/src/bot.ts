@@ -1,8 +1,10 @@
 import { Telegraf } from 'telegraf';
 import { registerCommands } from './commands';
+import { registerHandlers } from './handlers';
 import { errorMiddleware } from './middleware/error';
 import { loggingMiddleware } from './middleware/logging';
 import type { BotApiClient } from './services/api-client';
+import { logger } from './utils/logger';
 
 export interface CreateBotOptions {
   token: string;
@@ -15,5 +17,6 @@ export const createBot = ({ token, api, miniAppUrl }: CreateBotOptions): Telegra
   bot.use(loggingMiddleware);
   bot.catch(errorMiddleware);
   registerCommands(bot, { api, miniAppUrl });
+  registerHandlers(bot, { api, miniAppUrl, logger });
   return bot;
 };

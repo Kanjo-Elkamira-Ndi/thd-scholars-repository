@@ -4,6 +4,8 @@ export type RosterStatus = 'active' | 'graduated' | 'withdrawn' | 'pending';
 
 export type JoinRequestStatus = 'approved' | 'declined' | 'pending';
 
+export type JoinRequestDeliveryStatus = 'pending' | 'processing' | 'delivered' | 'failed';
+
 export type ContentFormat = 'audio_lecture' | 'video_seminar' | 'ebook' | 'research_pdf';
 
 export type DisciplineTag =

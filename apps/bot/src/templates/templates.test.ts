@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { RosterEntry, User } from '@thd/shared';
 import {
+  joinRequestPendingKeyboard,
   renderApproval,
   renderDecline,
   renderHelp,
+  renderInviteLink,
+  renderJoinRequestPending,
   renderNotRegistered,
   renderStart,
   renderStatus,
@@ -72,5 +75,37 @@ describe('templates', () => {
   it('approval and decline render their inputs', () => {
     expect(renderApproval({ name: 'Ada' })).toContain('Ada');
     expect(renderDecline({ reason: 'not on the roster' })).toContain('not on the roster');
+  });
+
+  it('join-request-pending renders the exact locked copy', () => {
+    expect(renderJoinRequestPending()).toBe(
+      [
+        'Thanks for requesting to join the Th.D. Scholars channel!',
+        '',
+        "To be approved, complete your registration in the Mini App. We match your DIBI Registration ID against the Registrar's roster — if your record is active, you'll be approved automatically.",
+      ].join('\n'),
+    );
+  });
+
+  it('join-request-pending keyboard links the Complete Registration button', () => {
+    expect(joinRequestPendingKeyboard('https://t.me/x/app')).toEqual({
+      inline_keyboard: [[{ text: 'Complete Registration', url: 'https://t.me/x/app' }]],
+    });
+  });
+
+  it('invite-link renders the exact locked copy', () => {
+    expect(
+      renderInviteLink({ name: 'Ada', link: 'https://t.me/+abc', expiresInHours: 24 }),
+    ).toBe(
+      [
+        '✅ Welcome, Ada!',
+        '',
+        'Your registration was approved. Tap the link below to join the Th.D. Scholars channel:',
+        '',
+        'https://t.me/+abc',
+        '',
+        'This link works once and expires in 24 hours. If it expires before you use it, run /mystatus or contact the Registrar.',
+      ].join('\n'),
+    );
   });
 });

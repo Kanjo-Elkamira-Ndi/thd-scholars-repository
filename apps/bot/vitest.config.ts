@@ -10,6 +10,7 @@ export default defineConfig({
       API_BASE_URL: 'http://localhost:3000',
       API_INTERNAL_TOKEN: 'test-internal-token',
       MINIAPP_URL: 'https://t.me/test_bot/app',
+      BOT_CHANNEL_ID: '@test_channel',
     },
   },
 });

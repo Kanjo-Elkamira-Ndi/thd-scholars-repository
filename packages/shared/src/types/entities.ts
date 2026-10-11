@@ -1,4 +1,11 @@
-import type { ContentFormat, DisciplineTag, JoinRequestStatus, Role, RosterStatus } from './enums';
+import type {
+  ContentFormat,
+  DisciplineTag,
+  JoinRequestDeliveryStatus,
+  JoinRequestStatus,
+  Role,
+  RosterStatus,
+} from './enums';
 
 export interface User {
   id: string;
@@ -33,6 +40,14 @@ export interface JoinRequest {
   decidedBy: string | null;
   decidedAt: string | null;
   reason: string | null;
+  chatId: number | null;
+  telegramUserId: number | null;
+  joinRequestedAt: string | null;
+  deliveryStatus: JoinRequestDeliveryStatus;
+  deliveryAttempts: number;
+  nextAttemptAt: string | null;
+  deliveredAt: string | null;
+  deliveryError: string | null;
   createdAt: string;
 }
 

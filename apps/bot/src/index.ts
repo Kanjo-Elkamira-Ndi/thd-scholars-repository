@@ -4,6 +4,7 @@ import { createBot } from './bot';
 import { COMMANDS } from './commands/definitions';
 import { env } from './config/env';
 import { createApiClient } from './services/api-client';
+import { startDeliveryLoop, stopDeliveryLoop } from './services/delivery';
 import { logger } from './utils/logger';
 
 // Node 20+ enables "Happy Eyeballs" address-family autoselection by default.
@@ -23,8 +24,18 @@ const main = async (): Promise<void> => {
 
   await bot.telegram.setMyCommands(COMMANDS);
 
+  startDeliveryLoop({
+    api,
+    telegram: bot.telegram,
+    channelId: env.botChannelId,
+    logger,
+    intervalMs: env.outboxPollIntervalMs,
+    batchSize: env.outboxBatchSize,
+  });
+
   const stop = (signal: string): void => {
     logger.info({ signal }, 'stopping bot');
+    stopDeliveryLoop();
     bot.stop(signal);
   };
   process.once('SIGINT', () => stop('SIGINT'));

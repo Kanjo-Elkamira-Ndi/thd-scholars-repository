@@ -28,12 +28,11 @@ export const mapUserRow = (row: UserRow): User => ({
 
 const USER_COLUMNS = `id, telegram_id, telegram_username, full_name, email, role, created_at, updated_at`;
 
-export const upsertByTelegram = async (input: {
-  telegramId: number;
-  username: string | null;
-  fullName: string;
-}): Promise<User> => {
-  const { rows } = await pool.query<UserRow>(
+export const upsertByTelegram = async (
+  input: { telegramId: number; username: string | null; fullName: string },
+  db: Db = pool,
+): Promise<User> => {
+  const { rows } = await db.query<UserRow>(
     `WITH upsert AS (
        INSERT INTO users (telegram_id, telegram_username, full_name)
        VALUES ($1::bigint, $2, $3)

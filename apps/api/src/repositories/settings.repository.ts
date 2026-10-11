@@ -13,3 +13,8 @@ export const getRegistrationIdPattern = async (db: Db = pool): Promise<string> =
   }
   return value;
 };
+
+export const getInviteLinkExpirySeconds = async (db: Db = pool): Promise<number> => {
+  const value = await getSetting<number>('inviteLinkExpirySeconds', db);
+  return typeof value === 'number' && value > 0 ? value : 86400;
+};

@@ -7,6 +7,7 @@ PostgreSQL. Raw `pg` driver — no ORM. All access goes through `apps/api/src/re
 - `role`: `'scholar' | 'faculty' | 'registrar' | 'admin'`
 - `user_status` (roster status): `'active' | 'graduated' | 'withdrawn' | 'pending'`
 - `join_request_status`: `'approved' | 'declined' | 'pending'`
+- `join_request_delivery_status`: `'pending' | 'processing' | 'delivered' | 'failed'`
 - `content_format`: `'audio_lecture' | 'video_seminar' | 'ebook' | 'research_pdf'`
 
 ## Tables
@@ -44,7 +45,7 @@ The verification source of truth. One row per Th.D. candidate record (not necess
 | `created_at` | `timestamptz` | default `now()` |
 
 ### `join_requests`
-One row per Telegram join-request event, for audit and to prevent duplicate processing.
+One row per Telegram join-request event, for audit and to prevent duplicate processing. Since migration `0008` the same row also carries the channel-event columns and the outbox/delivery queue state the Bot Service polls.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -54,7 +55,18 @@ One row per Telegram join-request event, for audit and to prevent duplicate proc
 | `decided_by` | `uuid` FK → `users.id` | nullable — null means system auto-decision |
 | `decided_at` | `timestamptz` | nullable |
 | `reason` | `text` | nullable — e.g. "no roster match", "status withdrawn" |
+| `chat_id` | `bigint` | nullable — channel chat id from `chat_join_request`; null for a Mini App-only registration |
+| `telegram_user_id` | `bigint` | nullable — requester's Telegram id (`from.id`) |
+| `join_requested_at` | `timestamptz` | nullable — when the channel request arrived |
+| `delivery_status` | `text` | not null, default `'pending'`, CHECK against join_request_delivery_status (`pending`/`processing`/`delivered`/`failed`) |
+| `delivery_attempts` | `integer` | not null, default `0` |
+| `next_attempt_at` | `timestamptz` | nullable — backoff gate for the next claim |
+| `delivery_claimed_at` | `timestamptz` | nullable — lease timestamp set when claimed; stale leases are reclaimed |
+| `delivered_at` | `timestamptz` | nullable |
+| `delivery_error` | `text` | nullable — last failure message |
 | `created_at` | `timestamptz` | default `now()` |
+
+Migration `0008` also adds three partial indexes: `join_requests_one_pending_per_user` (unique on `user_id WHERE status = 'pending'`), `join_requests_delivery_queue` (`next_attempt_at WHERE status <> 'pending' AND delivery_status = 'pending'`), and `join_requests_delivery_processing` (`delivery_claimed_at WHERE delivery_status = 'processing'`).
 
 ### `invite_links`
 Single-use, time-limited invite links issued per approved request.
@@ -125,6 +137,7 @@ users 1───* audit_logs        (via audit_logs.actor_user_id)
 0005_add_roster_status_index.sql
 0006_settings.sql
 0007_roster_access_review.sql
+0008_join_request_delivery.sql
 ```
 
 `schema_migrations` (created by the runner in `apps/api/src/db/migrate.ts`): one row per applied migration — `name` (primary key, the filename) and `applied_at`. Never edited; the runner appends to it.

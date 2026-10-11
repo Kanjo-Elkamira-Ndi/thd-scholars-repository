@@ -27,7 +27,7 @@ Submits a registration form. Triggers roster matching and the approve/decline de
 - **Status:** `201 Created`.
 - **Response:** `{ decision: 'approved' | 'declined', reason: string | null }` — `reason` is `null` on approval; otherwise `'No matching roster entry found'` or `'Roster record is not active (status: <status>)'`.
 - **Errors:** `400 VALIDATION_ERROR` (bad body, e.g. registration id not matching `settings.registrationIdPattern`), `429 RATE_LIMITED`.
-- **Side effects:** writes an `join_requests` row (`approved`/`declined`) and an `audit_logs` row in one transaction; on approval links the roster row to the user and stamps `users.full_name`/`email`/`telegram_username`. The Telegram join-request approve/decline call is deferred to the Bot Service phase (see `workflows.md`).
+- **Side effects:** writes/updates a `join_requests` row (`approved`/`declined`) and an `audit_logs` row in one transaction; on approval links the roster row to the user and stamps `users.full_name`/`email`/`telegram_username`. The decision also **enqueues a delivery task** on the same row (`delivery_status = 'pending'`), which the Bot Service later claims and executes (`approveChatJoinRequest`/`declineChatJoinRequest` or a single-use invite link). An open `pending` `chat_join_request` row is updated in place so its `chat_id` is preserved; otherwise a new decided row with `chat_id = null` is created.
 
 ### `GET /api/registrations/:id`
 Fetch a single join request (status lookup).
@@ -127,8 +127,28 @@ Summary stats for the Admin dashboard (total scholars, pending requests, recent 
 
 ## Internal endpoints (Bot Service → API only, `X-Internal-Token`)
 
+All internal endpoints require the `X-Internal-Token` header (compared in constant time to `API_INTERNAL_TOKEN`); a missing/incorrect token → `401`. The bot dials the API outbound; the API never calls the bot.
+
+### `POST /internal/join-requests`
+Record a channel `chat_join_request` as an open `pending` request.
+- **Body:** `{ telegramId, telegramUsername?, firstName?, lastName?, chatId, joinRequestedAt }` (`recordJoinRequestSchema`).
+- **Status:** `201 Created`.
+- **Response:** `{ joinRequestId }`.
+- **Side effects:** upserts the user (by `telegram_id`; an existing `full_name` is never overwritten), then inserts or updates — in place, preserving `chat_id` — the single open `pending` row per user (partial unique index).
+- **Errors:** `400 VALIDATION_ERROR`.
+
+### `POST /internal/join-requests/claim`
+Lease up to `limit` decided-but-undelivered tasks for the Bot Service outbox loop.
+- **Body:** `{ limit?: number }` (1–100, optional; defaults to the configured batch size).
+- **Response:** `200 { items: JoinRequestDeliveryTask[], inviteLinkExpirySeconds: number }` — each item carries `{ id, decision, reason, telegramId, chatId, fullName, attempts }`.
+- **Behaviour:** first reclaims stale leases (`processing` older than `JOIN_REQUEST_DELIVERY_LEASE_SECONDS`), then leases claimable rows (`status <> 'pending' AND delivery_status = 'pending' AND next_attempt_at <= now()`), marking them `processing` and incrementing `delivery_attempts`. A row is never leased twice concurrently.
+
 ### `POST /internal/join-requests/:id/complete`
-Bot confirms it executed the Telegram approve/decline call; API finalizes the `join_requests` row.
+Bot reports the outcome of a leased task; API finalizes the `join_requests` row.
+- **Path param:** `id` must be a UUID (else `400 VALIDATION_ERROR`); unknown → `404 NOT_FOUND`.
+- **Body:** `{ outcome: 'delivered' | 'failed', error?, inviteLink?: { link, expiresAt } }` (`completeJoinRequestSchema`; `error` is required when `outcome = 'failed'`).
+- **Response:** `200 { deliveryStatus: JoinRequestDeliveryStatus }`.
+- **Behaviour:** `delivered` sets `delivered_at` and stores an `invite_links` row when an `inviteLink` is supplied (`ON CONFLICT (link) DO NOTHING`). `failed` reschedules with exponential backoff, or — once `delivery_attempts` reaches `JOIN_REQUEST_DELIVERY_MAX_ATTEMPTS` — marks the row `failed` and writes an `audit_logs` row. Idempotent: repeating on an already-terminal row is a 200 no-op.
 
 ### `GET /internal/users/:telegramId/status`
 Read a user's verification status for the Bot Service (`/mystatus`). Read-only.
