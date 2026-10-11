@@ -22,3 +22,7 @@ export type DisciplineTag =
   | 'Apologetics';
 
 export type RegistrationDecision = Exclude<JoinRequestStatus, 'pending'>;
+
+export type MemberRemovalStatus = 'pending' | 'processing' | 'done' | 'failed' | 'cancelled';
+
+export type MemberRemovalInitiator = 'admin' | 'registrar';

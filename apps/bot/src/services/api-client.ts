@@ -5,6 +5,9 @@ import type {
   ClaimJoinRequestsResponse,
   CompleteContentTaskInput,
   CompleteJoinRequestInput,
+  MemberRemovalTask,
+  MembershipReconcileTarget,
+  MembershipSnapshotEntry,
   RecordJoinRequestInput,
   UserStatusResponse,
 } from '@thd/shared';
@@ -45,6 +48,13 @@ export interface BotApiClient {
     input: CompleteContentTaskInput,
   ): Promise<{ deliveryStatus: string }>;
   downloadContent(id: string): Promise<ContentDownloadResult>;
+  getMembershipReconcileTargets(): Promise<MembershipReconcileTarget[]>;
+  pushMembershipSnapshot(entries: MembershipSnapshotEntry[]): Promise<void>;
+  claimMemberRemovals(limit?: number): Promise<MemberRemovalTask[]>;
+  completeMemberRemoval(
+    id: string,
+    input: { outcome: 'removed' | 'failed'; error?: string },
+  ): Promise<void>;
 }
 
 const parseFileName = (contentDisposition: string | null): string | null => {
@@ -159,6 +169,33 @@ export const createApiClient = ({
         mimeType: res.headers.get('content-type'),
         fileName: parseFileName(res.headers.get('content-disposition')),
       };
+    },
+
+    async getMembershipReconcileTargets(): Promise<MembershipReconcileTarget[]> {
+      const body = await request('/internal/members/reconcile-targets');
+      return (body as { targets: MembershipReconcileTarget[] }).targets;
+    },
+
+    async pushMembershipSnapshot(entries: MembershipSnapshotEntry[]): Promise<void> {
+      await request('/internal/members/snapshot', {
+        method: 'PUT',
+        body: { members: entries },
+      });
+    },
+
+    async claimMemberRemovals(limit?: number): Promise<MemberRemovalTask[]> {
+      const body = await request('/internal/members/removals/claim', {
+        method: 'POST',
+        body: limit === undefined ? {} : { limit },
+      });
+      return (body as { items: MemberRemovalTask[] }).items;
+    },
+
+    async completeMemberRemoval(
+      id: string,
+      input: { outcome: 'removed' | 'failed'; error?: string },
+    ): Promise<void> {
+      await request(`/internal/members/removals/${id}/confirm`, { method: 'POST', body: input });
     },
   };
 };

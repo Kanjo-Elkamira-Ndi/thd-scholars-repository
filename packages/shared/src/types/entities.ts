@@ -5,6 +5,8 @@ import type {
   DisciplineTag,
   JoinRequestDeliveryStatus,
   JoinRequestStatus,
+  MemberRemovalInitiator,
+  MemberRemovalStatus,
   Role,
   RosterStatus,
 } from './enums';
@@ -93,4 +95,66 @@ export interface AuditLog {
 export interface UserStatusResponse {
   user: User;
   roster: RosterEntry | null;
+}
+
+export interface ChannelMembership {
+  isMember: boolean;
+  memberStatus: string | null;
+  checkedAt: string;
+}
+
+export interface MemberRemoval {
+  id: string;
+  userId: string;
+  requestedBy: string | null;
+  initiatedByRole: MemberRemovalInitiator;
+  reason: string | null;
+  status: MemberRemovalStatus;
+  attempts: number;
+  nextAttemptAt: string | null;
+  claimedAt: string | null;
+  lastError: string | null;
+  createdAt: string;
+  updatedAt: string;
+  processedAt: string | null;
+}
+
+export interface MemberSummary {
+  user: {
+    id: string;
+    telegramId: number;
+    fullName: string;
+    role: Role;
+  };
+  roster: {
+    registrationId: string;
+    status: RosterStatus;
+    cohortYear: number;
+  } | null;
+  membership: ChannelMembership | null;
+}
+
+export type RosterAuditIssue =
+  | 'active_not_member'
+  | 'inactive_still_member'
+  | 'membership_unknown';
+
+export interface RosterAuditEntry {
+  roster: {
+    id: string;
+    userId: string;
+    registrationId: string;
+    status: RosterStatus;
+    cohortYear: number;
+  };
+  membership: ChannelMembership | null;
+  issue: RosterAuditIssue;
+}
+
+export interface DashboardStats {
+  totalScholars: number;
+  pendingJoinRequests: number;
+  pendingAccessReviews: number;
+  contentByDiscipline: { discipline: DisciplineTag; count: number }[];
+  recentActivity: AuditLog[];
 }

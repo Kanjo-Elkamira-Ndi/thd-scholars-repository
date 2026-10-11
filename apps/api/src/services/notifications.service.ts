@@ -14,3 +14,11 @@ export const notifyRepeatedRegistrationFailure = async (
     'Repeated registration failure detected — notification wiring pending (FR27)',
   );
 };
+
+export const notify = async (
+  userId: string,
+  event: string,
+  payload: Record<string, unknown> = {},
+): Promise<void> => {
+  logger.info({ userId, event, payload }, 'User notification queued (FR26 wiring pending)');
+};

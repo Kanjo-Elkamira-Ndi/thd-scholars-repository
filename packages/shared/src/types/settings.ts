@@ -3,4 +3,5 @@ export interface SystemSettings {
   availableCohortYears: number[];
   inviteLinkExpirySeconds: number;
   maxUploadSizeBytes: number;
+  maxContentUploadBytes: number;
 }

@@ -88,6 +88,18 @@ export const findByRegistrationId = async (
   return rows.length ? mapRosterRow(rows[0]) : null;
 };
 
+export const clearAccessReviewPending = async (
+  userId: string,
+  db: Db = pool,
+): Promise<void> => {
+  await db.query(
+    `UPDATE roster
+        SET access_review_pending = false, access_review_flagged_at = NULL, updated_at = now()
+      WHERE user_id = $1 AND access_review_pending = true`,
+    [userId],
+  );
+};
+
 export const getRosterById = async (id: string, db: Db = pool): Promise<RosterEntry | null> => {
   const { rows } = await db.query<RosterRow>(
     `SELECT ${ROSTER_COLUMNS} FROM roster WHERE id = $1`,

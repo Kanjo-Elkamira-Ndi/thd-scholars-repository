@@ -165,6 +165,31 @@ Read a user's verification status for the Bot Service (`/mystatus`). Read-only.
 - **Response:** `200 { user: User, roster: RosterEntry | null }` (same shape as `GET /api/me`).
 - **Errors:** `400 VALIDATION_ERROR`, `404 NOT_FOUND` (unknown user).
 
+### `GET /internal/members/reconcile-targets`
+List users whose channel membership should be re-checked (Bot Service membership-sync loop). Read-only.
+- **Auth:** `X-Internal-Token`.
+- **Response:** `200 { targets: { userId, telegramId }[] }` — pending/open join requests plus roster entries whose membership is stale; capped at a bounded batch.
+- **Behaviour:** the Telegram Bot API cannot enumerate chat members, so the API can only ask the bot to check a known set of `telegram_id`s one at a time.
+
+### `PUT /internal/members/snapshot`
+Persist the bot's freshly observed membership for a batch of users.
+- **Body:** `{ members: { telegramId, isMember, memberStatus }[] }` (`membershipSnapshotSchema`; `memberStatus` is the raw Telegram status string).
+- **Response:** `200 { updated: number }`.
+- **Behaviour:** upserts each `channel_membership` row (`telegram_id`, `is_member`, `member_status`, `checked_at`). Unknown `telegram_id`s are ignored. The snapshot is authoritative for `GET /api/members` and `GET /api/roster/audit`.
+
+### `POST /internal/members/removals/claim`
+Lease up to `limit` member-removal tasks for the Bot Service removal loop.
+- **Body:** `{ limit?: number }` (1–`MEMBER_REMOVAL_MAX_BATCH`, optional).
+- **Response:** `200 { items: MemberRemovalTask[] }` — each item carries `{ id, userId, telegramId, attempts }`.
+- **Behaviour:** first reclaims stale leases (`processing` older than `MEMBER_REMOVAL_LEASE_SECONDS`), then leases claimable rows, marking them `processing` and incrementing `attempts`. A task whose roster row is no longer graduated/withdrawn is skipped (cancelled).
+
+### `POST /internal/members/removals/:id/confirm`
+Bot reports the outcome of a leased removal; API finalizes the `member_removals` row.
+- **Path param:** `id` must be a UUID (else `400 VALIDATION_ERROR`).
+- **Body:** `{ outcome: 'removed' | 'failed', error? }` (`memberRemovalConfirmSchema`; `error` is required when `outcome = 'failed'`).
+- **Response:** `200 { status: MemberRemovalStatus }`.
+- **Behaviour:** `removed` marks the row done and upserts `channel_membership` with `is_member = false`. `failed` reschedules with `MEMBER_REMOVAL_BACKOFF_BASE_SECONDS`, or — once `attempts` reaches `MEMBER_REMOVAL_MAX_ATTEMPTS` — marks the row failed and writes a `member_removals` `audit_logs` row. Idempotent on an already-terminal row.
+
 ### `POST /internal/content/claim`
 Lease up to `limit` content posts that need publishing or channel-message deletion.
 - **Body:** `{ limit?: number }` (1–100, optional; defaults to `CONTENT_DELIVERY_BATCH_SIZE`).

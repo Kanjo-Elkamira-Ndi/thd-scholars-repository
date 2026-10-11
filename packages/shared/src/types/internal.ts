@@ -38,3 +38,29 @@ export interface ContentDeliveryTask {
 export interface ClaimContentTasksResponse {
   items: ContentDeliveryTask[];
 }
+
+export interface MembershipReconcileTarget {
+  userId: string;
+  telegramId: number;
+}
+
+export interface MembershipSnapshotEntry {
+  telegramId: number;
+  isMember: boolean;
+  memberStatus: string | null;
+}
+
+export interface MemberRemovalTask {
+  id: string;
+  userId: string;
+  telegramId: number;
+  attempts: number;
+}
+
+export interface ClaimMemberRemovalsResponse {
+  items: MemberRemovalTask[];
+}
+
+export interface MembershipReconcileTargetsResponse {
+  targets: MembershipReconcileTarget[];
+}

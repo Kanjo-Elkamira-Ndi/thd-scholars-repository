@@ -2,11 +2,18 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   DEFAULT_DRIVE_THRESHOLD_BYTES,
   DEFAULT_MAX_CONTENT_UPLOAD_BYTES,
+  DEFAULT_REGISTRATION_ID_REGEX,
   TELEGRAM_MAX_UPLOAD_BYTES,
 } from '@thd/shared';
 import pool from '../db/pool';
+import { createUser } from '../db/testing/fixtures';
 import { resetTestDatabase } from '../db/testing/test-database';
-import { getDriveThresholdBytes, getMaxContentUploadBytes } from './settings.repository';
+import {
+  getDriveThresholdBytes,
+  getMaxContentUploadBytes,
+  getSystemSettings,
+  upsertSettings,
+} from './settings.repository';
 
 beforeEach(resetTestDatabase);
 
@@ -58,5 +65,41 @@ describe('getMaxContentUploadBytes', () => {
   it('falls back to the default when missing', async () => {
     await pool.query(`DELETE FROM settings WHERE key = 'maxContentUploadBytes'`);
     expect(await getMaxContentUploadBytes()).toBe(DEFAULT_MAX_CONTENT_UPLOAD_BYTES);
+  });
+});
+
+describe('getSystemSettings', () => {
+  it('returns the seeded settings with distinct upload thresholds', async () => {
+    const settings = await getSystemSettings();
+
+    expect(settings.registrationIdPattern).toBe(DEFAULT_REGISTRATION_ID_REGEX);
+    expect(settings.availableCohortYears).toEqual([2025, 2026]);
+    expect(settings.inviteLinkExpirySeconds).toBe(86400);
+    expect(settings.maxUploadSizeBytes).toBe(DEFAULT_DRIVE_THRESHOLD_BYTES);
+    expect(settings.maxContentUploadBytes).toBe(DEFAULT_MAX_CONTENT_UPLOAD_BYTES);
+    expect(settings.maxUploadSizeBytes).not.toBe(settings.maxContentUploadBytes);
+  });
+});
+
+describe('upsertSettings', () => {
+  it('writes values and records the actor', async () => {
+    const admin = await createUser(9201, 'admin');
+
+    await upsertSettings(
+      [
+        { key: 'availableCohortYears', value: [2025, 2027] },
+        { key: 'inviteLinkExpirySeconds', value: 1200 },
+      ],
+      admin.id,
+    );
+
+    const settings = await getSystemSettings();
+    expect(settings.availableCohortYears).toEqual([2025, 2027]);
+    expect(settings.inviteLinkExpirySeconds).toBe(1200);
+
+    const { rows } = await pool.query<{ updated_by: string }>(
+      `SELECT updated_by FROM settings WHERE key = 'inviteLinkExpirySeconds'`,
+    );
+    expect(rows[0].updated_by).toBe(admin.id);
   });
 });

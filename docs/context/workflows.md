@@ -26,24 +26,25 @@ End-to-end user journeys, mapped to the roles in `project-overview.md` and the e
 3. API writes the change, logs old/new value to `audit_logs`.
 4. **If new status is `graduated` or `withdrawn`:** the record is flagged in the "pending access review" view (does not auto-remove from the channel — see Workflow 4).
 
-## 3. Quarterly Roster Audit
+## 3. Quarterly Roster Audit — implemented (Phase 10)
 **Actor:** Registrar or Admin
 **Trigger:** scheduled (quarterly) or manually initiated.
 
 1. User opens Mini App → Roster → Audit view, backed by `GET /api/roster/audit`.
-2. System cross-references `roster` entries against `GET /api/members` (live channel membership).
-3. Mismatches are listed: roster says inactive but still a channel member, or vice versa.
+2. The API cross-references `roster` entries against `channel_membership` (the bot-observed snapshot). The Telegram Bot API cannot enumerate chat members, so the bot's membership-sync loop periodically asks about known `telegram_id`s and pushes a snapshot (`PUT /internal/members/snapshot`); the audit reads that snapshot.
+3. Mismatches are listed, scoped to roster entries only (staff without a roster row are never flagged): `active_not_member`, `inactive_still_member`, and `membership_unknown` (no snapshot yet — surfaced so the view can prompt a manual re-verification rather than silently passing).
 4. For each flagged entry, Admin (or Registrar within their permitted boundary — see `security.md`) confirms removal via `POST /api/members/:userId/remove`.
-5. Each removal writes an `audit_logs` entry and revokes any still-active `invite_links` for that user.
+5. Each removal enqueues a `member_removals` task (the bot performs the actual kick on its next tick), writes an `audit_logs` entry, and revokes any still-active `invite_links` for that user.
 
-## 4. Access Revocation (Graduation/Withdrawal Follow-Through)
+## 4. Access Revocation (Graduation/Withdrawal Follow-Through) — implemented (Phase 10)
 **Actor:** Admin (confirming), triggered from Workflow 2's flag
 **Trigger:** a roster status change to `graduated`/`withdrawn` creates a flagged, unconfirmed item.
 
 1. Admin sees the flagged item on their dashboard (`GET /api/dashboard/stats` surfaces a count; a dedicated list view shows the detail).
 2. Admin reviews and confirms removal (or, rarely, overrides — e.g., a brief re-enrollment) via the Mini App.
-3. Confirmed removal calls `POST /api/members/:userId/remove`, logs to `audit_logs`.
-4. This two-step design (flag → confirm) exists specifically so no student is auto-kicked by a data-entry change without a human checkpoint — see FR20.
+3. Confirmed removal calls `POST /api/members/:userId/remove`, enqueues a `member_removals` task, and logs to `audit_logs`. A registrar may confirm only within their permitted boundary (a flagged graduated/withdrawn record, which also clears `access_review_pending`); re-activating a roster entry cancels any pending removal.
+4. The bot's member-removal loop then leases the task (`POST /internal/members/removals/claim`), bans then unbans the user, and confirms (`.../:id/confirm`).
+5. This two-step design (flag → confirm) exists specifically so no student is auto-kicked by a data-entry change without a human checkpoint — see FR20.
 
 ## 5. Faculty Posts Content — implemented (Phase 9)
 **Actor:** Faculty
@@ -66,20 +67,20 @@ End-to-end user journeys, mapped to the roles in `project-overview.md` and the e
 3. Edit: `PATCH /api/content/:id` updates metadata (does not re-post to the channel) and writes a `content_updated` audit row.
 4. Remove: a post that was never claimed by the bot is hard-deleted and its staged file unlinked immediately; an already-published post is soft-deleted and `pending_action = 'delete'` so the bot deletes the channel message on its next tick. If a publish confirms after a delete was queued, the message id is stored but the delete is **never** cancelled (the message is still removed). A delete of an already-gone message counts as success. Every delete writes a `content_deleted` audit row.
 
-## 7. Admin Assigns/Changes a Role
+## 7. Admin Assigns/Changes a Role — implemented (Phase 10)
 **Actor:** Admin
 **Trigger:** a new Faculty member needs posting access, a Scholar is promoted to Registrar, etc.
 
 1. Admin opens Mini App → Users → selects a user.
-2. Admin changes role via `PATCH /api/users/:id/role`.
-3. API logs the change to `audit_logs`, optionally triggers a notification to the affected user (FR26).
+2. Admin changes role via `PATCH /api/users/:id/role`. The API refuses a self-change and refuses to demote the last remaining admin (row-locked, concurrency-safe).
+3. API logs the change to `audit_logs`, optionally triggers a notification to the affected user (FR26 — currently a no-PII stub; see `security.md`).
 
-## 8. Admin Reviews Audit Logs
+## 8. Admin Reviews Audit Logs — implemented (Phase 10)
 **Actor:** Admin
 **Trigger:** routine oversight, or investigating a specific concern.
 
 1. Admin opens Mini App → Audit Logs, backed by `GET /api/audit-logs`, filterable by action/actor/target type.
-2. This view is read-only — audit logs are never editable (see `security.md`).
+2. This view is read-only — the table is append-only and enforced by a database trigger that rejects `UPDATE`/`DELETE` (see `security.md`).
 
 ## 9. Repeated Registration Failure (Abuse/Error Signal)
 **Actor:** system-initiated, surfaces to Registrar/Admin

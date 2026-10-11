@@ -6,6 +6,7 @@ import type {
 import { env } from '../config/env';
 import { withTransaction } from '../db/transaction';
 import * as auditRepo from '../repositories/audit-logs.repository';
+import * as membershipRepo from '../repositories/channel-membership.repository';
 import * as joinRepo from '../repositories/join-requests.repository';
 import * as settingsRepo from '../repositories/settings.repository';
 import { AppError } from '../utils/errors';
@@ -44,6 +45,11 @@ export const completeJoinRequest = async (
           client,
         );
       }
+      await membershipRepo.upsertMembershipForUser(
+        row.userId,
+        { isMember: true, memberStatus: 'invited' },
+        client,
+      );
       return { deliveryStatus: 'delivered' };
     }
 

@@ -76,3 +76,39 @@ export const getUserByTelegramId = async (
   );
   return rows.length ? mapUserRow(rows[0]) : null;
 };
+
+export const getUserById = async (id: string, db: Db = pool): Promise<User | null> => {
+  const { rows } = await db.query<UserRow>(`SELECT ${USER_COLUMNS} FROM users WHERE id = $1`, [id]);
+  return rows.length ? mapUserRow(rows[0]) : null;
+};
+
+export const listUsers = async (db: Db = pool): Promise<User[]> => {
+  const { rows } = await db.query<UserRow>(`SELECT ${USER_COLUMNS} FROM users ORDER BY full_name`);
+  return rows.map(mapUserRow);
+};
+
+export const updateUserRole = async (
+  id: string,
+  role: Role,
+  db: Db = pool,
+): Promise<User | null> => {
+  const { rows } = await db.query<UserRow>(
+    `UPDATE users SET role = $2, updated_at = now() WHERE id = $1 RETURNING ${USER_COLUMNS}`,
+    [id, role],
+  );
+  return rows.length ? mapUserRow(rows[0]) : null;
+};
+
+export const countAdmins = async (db: Db = pool): Promise<number> => {
+  const { rows } = await db.query<{ count: string }>(
+    `SELECT count(*)::text AS count FROM users WHERE role = 'admin'`,
+  );
+  return Number(rows[0].count);
+};
+
+export const lockAdminRows = async (db: Db = pool): Promise<string[]> => {
+  const { rows } = await db.query<{ id: string }>(
+    `SELECT id FROM users WHERE role = 'admin' ORDER BY id FOR UPDATE`,
+  );
+  return rows.map((row) => row.id);
+};

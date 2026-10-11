@@ -7,6 +7,7 @@ export const settingsUpdateSchema = z
       .string({ message: 'Registration ID pattern is required' })
       .trim()
       .min(1, { message: 'Registration ID pattern must not be empty' })
+      .max(200, { message: 'Registration ID pattern must be 200 characters or fewer' })
       .superRefine((value, ctx) => {
         try {
           new RegExp(value);

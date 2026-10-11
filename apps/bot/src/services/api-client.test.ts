@@ -147,3 +147,94 @@ describe('createApiClient.getUserStatus', () => {
     expect((error as BotApiError).code).toBe('NETWORK_ERROR');
   });
 });
+
+describe('membership + member-removal endpoints', () => {
+  it('unwraps reconcile targets', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ targets: [{ userId: 'u1', telegramId: 42 }] }));
+    const api = createApiClient({ ...options, fetchImpl });
+
+    const targets = await api.getMembershipReconcileTargets();
+
+    expect(targets).toEqual([{ userId: 'u1', telegramId: 42 }]);
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'http://api.test/internal/members/reconcile-targets',
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
+
+  it('PUTs the snapshot wrapped in a members array', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ updated: 1 }));
+    const api = createApiClient({ ...options, fetchImpl });
+    const entries = [{ telegramId: 42, isMember: true, memberStatus: 'member' }];
+
+    await api.pushMembershipSnapshot(entries);
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'http://api.test/internal/members/snapshot',
+      expect.objectContaining({
+        method: 'PUT',
+        headers: { 'X-Internal-Token': 'tok', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ members: entries }),
+      }),
+    );
+  });
+
+  it('claims member removals with an empty body by default', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ items: [{ id: 'r-1', userId: 'u1', telegramId: 42, attempts: 1 }] }));
+    const api = createApiClient({ ...options, fetchImpl });
+
+    const items = await api.claimMemberRemovals();
+
+    expect(items).toEqual([{ id: 'r-1', userId: 'u1', telegramId: 42, attempts: 1 }]);
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'http://api.test/internal/members/removals/claim',
+      expect.objectContaining({ method: 'POST', body: '{}' }),
+    );
+  });
+
+  it('sends the limit when provided', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ items: [] }));
+    const api = createApiClient({ ...options, fetchImpl });
+
+    await api.claimMemberRemovals(5);
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'http://api.test/internal/members/removals/claim',
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ limit: 5 }) }),
+    );
+  });
+
+  it('confirms a removal on the id-scoped endpoint', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ status: 'done' }));
+    const api = createApiClient({ ...options, fetchImpl });
+
+    await api.completeMemberRemoval('r-9', { outcome: 'removed' });
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'http://api.test/internal/members/removals/r-9/confirm',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ outcome: 'removed' }),
+      }),
+    );
+  });
+
+  it('forwards a failure error message', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ status: 'pending' }));
+    const api = createApiClient({ ...options, fetchImpl });
+
+    await api.completeMemberRemoval('r-9', { outcome: 'failed', error: 'boom' });
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'http://api.test/internal/members/removals/r-9/confirm',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ outcome: 'failed', error: 'boom' }),
+      }),
+    );
+  });
+});

@@ -21,16 +21,20 @@ export const insertRosterRow = async (input: {
   programTrack?: string;
   status?: string;
   userId?: string | null;
+  updatedBy?: string | null;
+  accessReviewPending?: boolean;
 }): Promise<string> => {
   const { rows } = await pool.query<{ id: string }>(
-    `INSERT INTO roster (registration_id, cohort_year, program_track, status, user_id)
-     VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+    `INSERT INTO roster (registration_id, cohort_year, program_track, status, user_id, updated_by, access_review_pending)
+     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
     [
       input.registrationId,
       input.cohortYear ?? 2025,
       input.programTrack ?? 'Theology',
       input.status ?? 'active',
       input.userId ?? null,
+      input.updatedBy ?? null,
+      input.accessReviewPending ?? false,
     ],
   );
   return rows[0].id;

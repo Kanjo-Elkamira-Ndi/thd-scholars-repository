@@ -78,6 +78,7 @@ Single-use, time-limited invite links issued per approved request.
 | `created_for_user_id` | `uuid` FK → `users.id` | not null |
 | `expires_at` | `timestamptz` | not null |
 | `used` | `boolean` | default `false` |
+| `revoked_at` | `timestamptz` | nullable — set by migration `0010` when a link is revoked on member removal |
 | `created_at` | `timestamptz` | default `now()` |
 
 ### `content_posts`
@@ -122,6 +123,40 @@ Append-only. Every privileged action writes a row here.
 | `details` | `jsonb` | nullable — free-form context (old value/new value, etc.) |
 | `created_at` | `timestamptz` | default `now()` |
 
+Migration `0010` adds a trigger (`audit_logs` append-only guard) that rejects `UPDATE`/`DELETE` on this table — rows are immutable once written.
+
+### `channel_membership`
+Authoritative, bot-observed channel membership (migration `0010`). The Telegram Bot API cannot enumerate chat members, so this table is populated by the membership-sync loop asking about known `telegram_id`s.
+
+| Column | Type | Notes |
+|---|---|---|
+| `user_id` | `uuid` PK, FK → `users.id` | one live row per user |
+| `telegram_id` | `bigint` | not null — Telegram user id |
+| `is_member` | `boolean` | not null — derived from `member_status` |
+| `member_status` | `text` | not null — raw Telegram status (`member`, `administrator`, `creator`, `left`, `kicked`, …) |
+| `checked_at` | `timestamptz` | not null — when the bot last observed this |
+| `updated_at` | `timestamptz` | default `now()` |
+
+### `member_removals`
+Outbox for channel removals initiated by admins or the roster audit (migration `0010`).
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` PK | |
+| `user_id` | `uuid` FK → `users.id` | not null |
+| `telegram_id` | `bigint` | not null |
+| `initiated_by` | `uuid` FK → `users.id` | nullable — null for system/roster-initiated |
+| `reason` | `text` | nullable |
+| `status` | `text` | not null, default `'pending'` — `pending` / `processing` / `done` / `failed` / `cancelled` |
+| `attempts` | `integer` | not null, default `0` |
+| `next_attempt_at` | `timestamptz` | nullable — backoff gate |
+| `claimed_at` | `timestamptz` | nullable — lease timestamp |
+| `last_error` | `text` | nullable |
+| `completed_at` | `timestamptz` | nullable |
+| `created_at` | `timestamptz` | default `now()` |
+
+A partial unique index enforces at most one open (`pending`/`processing`) removal per user; a partial queue index drives the claim/backoff loop.
+
 ## Relationships (summary)
 ```
 users 1───* roster            (via roster.user_id)
@@ -151,6 +186,7 @@ users 1───* audit_logs        (via audit_logs.actor_user_id)
 0007_roster_access_review.sql
 0008_join_request_delivery.sql
 0009_content_delivery.sql
+0010_admin_membership.sql
 ```
 
 `schema_migrations` (created by the runner in `apps/api/src/db/migrate.ts`): one row per applied migration — `name` (primary key, the filename) and `applied_at`. Never edited; the runner appends to it.

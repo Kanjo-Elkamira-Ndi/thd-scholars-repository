@@ -51,6 +51,10 @@ A Telegraf-based process that:
 - Calls Telegram's `approveChatJoinRequest` / `declineChatJoinRequest`.
 - Posts formatted content messages to the channel on behalf of Faculty (triggered by the API after a Mini App submission).
 - Sends notifications (approval, decline, role change, etc.).
+- Runs a **membership-sync loop** (default every 15 min, throttled to ~20 `getChatMember` calls/sec) that asks the API for a bounded set of known `telegram_id`s to re-check and pushes the observed snapshot back (`PUT /internal/members/snapshot`). The Telegram Bot API cannot enumerate chat members, so the API cannot refresh membership on its own.
+- Runs a **member-removal loop** that leases queued removals and performs `banChatMember` → `unbanChatMember({ only_if_banned: true })` (a "user not in chat" error counts as success), then confirms the outcome.
+
+All four bot loops (join-request delivery, content delivery, membership sync, member removal) are independent: each wraps its own tick in a `try/catch` so one loop's failure is logged and never stops the others.
 
 The bot is a **thin client** over the API — it should contain minimal business logic itself; verification rules, RBAC, and roster logic live in the API service so both the bot and the Mini App stay consistent.
 

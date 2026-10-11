@@ -6,6 +6,8 @@ import { env } from './config/env';
 import { createApiClient } from './services/api-client';
 import { startContentLoop, stopContentLoop } from './services/content-delivery';
 import { startDeliveryLoop, stopDeliveryLoop } from './services/delivery';
+import { startMemberRemovalLoop, stopMemberRemovalLoop } from './services/member-removal';
+import { startMembershipSyncLoop, stopMembershipSyncLoop } from './services/membership-sync';
 import { logger } from './utils/logger';
 
 // Node 20+ enables "Happy Eyeballs" address-family autoselection by default.
@@ -43,10 +45,30 @@ const main = async (): Promise<void> => {
     batchSize: env.contentBatchSize,
   });
 
+  startMembershipSyncLoop({
+    api,
+    telegram: bot.telegram,
+    channelId: env.botChannelId,
+    logger,
+    intervalMs: env.membershipSyncIntervalMs,
+    ratePerSec: env.membershipSyncRatePerSec,
+  });
+
+  startMemberRemovalLoop({
+    api,
+    telegram: bot.telegram,
+    channelId: env.botChannelId,
+    logger,
+    intervalMs: env.outboxPollIntervalMs,
+    batchSize: env.memberRemovalBatchSize,
+  });
+
   const stop = (signal: string): void => {
     logger.info({ signal }, 'stopping bot');
     stopDeliveryLoop();
     stopContentLoop();
+    stopMembershipSyncLoop();
+    stopMemberRemovalLoop();
     bot.stop(signal);
   };
   process.once('SIGINT', () => stop('SIGINT'));

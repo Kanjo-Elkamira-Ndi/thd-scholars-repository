@@ -38,13 +38,16 @@ The content module reuses the same outbound-only, leased-outbox pattern and adds
 - Ownership checks matter even within a role: Faculty can edit/delete only `content_posts` where `posted_by` matches their `user_id`, enforced in the service layer, not just filtered out of a list view.
 - **Verified-member gate:** `GET /api/content` requires Faculty, Registrar, or Admin, or a Scholar with an `active` roster entry. The roster status is re-queried per request (not cached in the session token), so a Scholar whose status changes loses/regains access immediately; a Scholar without an active entry gets `403 NOT_VERIFIED`.
 - The boundary for member removal: Admin can remove anyone. Registrar may trigger removal **only** for roster entries they themselves flagged as graduated/withdrawn and that have been confirmed (see `workflows.md` — the system does not auto-kick without this confirmation step).
+- **Membership snapshot staleness:** `channel_membership` is populated by the bot's sync loop, so `GET /api/members` and `GET /api/roster/audit` reflect the *last observed* state, not necessarily the live one. The audit surfaces `membership_unknown` for users with no snapshot rather than treating "unknown" as "not a member", so a stale/empty snapshot can never be read as a clean bill of health.
+- **Roster-audit scope:** the audit is driven strictly from `roster` rows. Staff (e.g. a Faculty member) who belong to the channel but have no roster row are never listed for removal — the audit only ever proposes action on enrolled scholars.
 
 ## Data protection
 
 - **Personal data** (`full_name`, `email`, `registration_id`) in `roster` and `users` is visible only to Registrar and Admin roles via the API; Scholar-facing endpoints never return another user's personal data, only aggregate/public content metadata.
 - **Encryption at rest:** the database should run with disk-level encryption at the hosting provider level at minimum; if the hosting provider doesn't provide this by default, it needs to be enabled explicitly before go-live.
 - **Encryption in transit:** HTTPS required everywhere — the Mini App will not load over plain HTTP inside Telegram, so this is enforced by the platform itself for that leg; the API-to-database connection should also use TLS if the database is not on the same private network.
-- **Audit logs are append-only.** No endpoint should ever update or delete an `audit_logs` row. If an action needs correcting, a new log entry documents the correction — the original stays.
+- **Audit logs are append-only.** No endpoint ever updates or deletes an `audit_logs` row; migration `0010` installs a database trigger that rejects `UPDATE`/`DELETE` outright, so immutability is enforced below the application layer too. If an action needs correcting, a new log entry documents the correction — the original stays.
+- **Notifications carry no personal data.** The FR26 notification path (`notifications.service.ts`) is currently a structured log stub that records only ids and an action name — never `full_name`, `email`, `registration_id`, or message bodies — so wiring a real channel later cannot accidentally leak PII into logs.
 
 ## Secrets management
 

@@ -105,6 +105,10 @@ npm run dev --workspace=apps/miniapp
 | `api` | `CONTENT_DELIVERY_BACKOFF_BASE_SECONDS` | Exponential-backoff base for content delivery retries (default `60`) |
 | `api` | `CONTENT_DELIVERY_LEASE_SECONDS` | Processing lease before a content claim is reclaimed (default `120`) |
 | `api` | `CONTENT_DELIVERY_BATCH_SIZE` | Max content tasks returned per claim (default `10`) |
+| `api` | `MEMBER_REMOVAL_MAX_ATTEMPTS` | Removal retries before a member removal is marked failed (default `5`) |
+| `api` | `MEMBER_REMOVAL_BACKOFF_BASE_SECONDS` | Exponential-backoff base for member-removal retries (default `60`) |
+| `api` | `MEMBER_REMOVAL_LEASE_SECONDS` | Processing lease before a removal claim is reclaimed (default `120`) |
+| `api` | `MEMBER_REMOVAL_MAX_BATCH` | Max removals returned per claim (default `100`) |
 | `api` | `GOOGLE_SERVICE_ACCOUNT_JSON` | Service-account JSON used to upload large files to a Shared Drive (optional; unset disables Drive routing) |
 | `api` | `GOOGLE_DRIVE_FOLDER_ID` | Destination Shared Drive folder id (optional) |
 | `bot` | `BOT_TOKEN`                 | Telegram Bot API token                     |
@@ -128,6 +132,9 @@ Runs as a separate process from the API. It holds only the bot token and the int
 | `BOT_OUTBOX_POLL_INTERVAL_MS` | Join-request delivery poll cadence in ms (default `5000`)      |
 | `BOT_OUTBOX_BATCH_SIZE` | Max join-request delivery tasks per poll (default `10`)              |
 | `BOT_CONTENT_BATCH_SIZE` | Max content publish/delete tasks per poll (default `10`)           |
+| `BOT_MEMBER_REMOVAL_BATCH_SIZE` | Max member-removal tasks per poll (default `10`)             |
+| `BOT_MEMBERSHIP_SYNC_INTERVAL_MS` | Membership reconciliation cadence in ms (default `900000` = 15 min) |
+| `BOT_MEMBERSHIP_SYNC_RATE_PER_SEC` | Max `getChatMember` calls per second (default `20`)            |
 | `BOT_MODE`           | `polling` (dev) or `webhook` (prod); defaults from `NODE_ENV` when unset |
 | `BOT_WEBHOOK_DOMAIN` | Public HTTPS origin — required when `BOT_MODE=webhook`                  |
 | `BOT_WEBHOOK_PATH`   | Webhook path (default `/telegram/webhook`)                              |

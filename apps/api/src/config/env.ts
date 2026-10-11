@@ -31,6 +31,10 @@ const EnvSchema = z
     CONTENT_DELIVERY_BACKOFF_BASE_SECONDS: z.coerce.number().int().positive().default(60),
     CONTENT_DELIVERY_LEASE_SECONDS: z.coerce.number().int().positive().default(120),
     CONTENT_DELIVERY_BATCH_SIZE: z.coerce.number().int().positive().default(10),
+    MEMBER_REMOVAL_LEASE_SECONDS: z.coerce.number().int().positive().default(120),
+    MEMBER_REMOVAL_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
+    MEMBER_REMOVAL_MAX_BATCH: z.coerce.number().int().positive().default(100),
+    MEMBER_REMOVAL_BACKOFF_BASE_SECONDS: z.coerce.number().int().positive().default(60),
     GOOGLE_SERVICE_ACCOUNT_JSON: z.string().min(1).optional(),
     GOOGLE_DRIVE_FOLDER_ID: z.string().min(1).optional(),
   })

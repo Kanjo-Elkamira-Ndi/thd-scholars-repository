@@ -2,6 +2,7 @@ import type { PoolClient } from 'pg';
 import { createRosterCreateSchema, rosterUpdateSchema, type RosterUpdateInput } from '@thd/shared';
 import { withTransaction } from '../db/transaction';
 import * as auditRepo from '../repositories/audit-logs.repository';
+import * as memberRemovalsRepo from '../repositories/member-removals.repository';
 import * as rosterRepo from '../repositories/roster.repository';
 import * as settingsRepo from '../repositories/settings.repository';
 import { AppError } from '../utils/errors';
@@ -87,6 +88,10 @@ export const updateRosterEntry = async (args: {
       },
       client,
     );
+
+    if (cleared && existing.userId) {
+      await memberRemovalsRepo.cancelPendingRemovalsForUser(existing.userId, client);
+    }
 
     await auditRepo.insertAuditLog(
       {

@@ -1,5 +1,11 @@
 const GONE_MARKERS = ['hide_requester_missing', 'user_already_participant', 'no join request'];
 const MESSAGE_GONE_MARKERS = ['message to delete not found', 'message not found'];
+const USER_NOT_IN_CHAT_MARKERS = [
+  'user not found',
+  'user_not_participant',
+  'participant not found',
+  'chat member not found',
+];
 
 const extractDescription = (err: unknown): string => {
   if (typeof err !== 'object' || err === null) {
@@ -28,4 +34,12 @@ export const isMessageGone = (err: unknown): boolean => {
     return false;
   }
   return MESSAGE_GONE_MARKERS.some((marker) => description.includes(marker));
+};
+
+export const isUserNotInChat = (err: unknown): boolean => {
+  const description = extractDescription(err).toLowerCase();
+  if (description === '') {
+    return false;
+  }
+  return USER_NOT_IN_CHAT_MARKERS.some((marker) => description.includes(marker));
 };

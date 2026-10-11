@@ -1,7 +1,16 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import pool from '../db/pool';
+import { createUser } from '../db/testing/fixtures';
 import { resetTestDatabase } from '../db/testing/test-database';
-import { upsertByTelegram } from './users.repository';
+import { withTransaction } from '../db/transaction';
+import {
+  countAdmins,
+  getUserById,
+  listUsers,
+  lockAdminRows,
+  updateUserRole,
+  upsertByTelegram,
+} from './users.repository';
 
 beforeEach(resetTestDatabase);
 
@@ -51,5 +60,40 @@ describe('upsertByTelegram (integration)', () => {
     expect(updated.id).toBe(created.id);
     expect(updated.telegramUsername).toBe('new_name');
     expect(updated.role).toBe('registrar');
+  });
+});
+
+describe('user administration queries (integration)', () => {
+  it('lists users ordered by full name', async () => {
+    await createUser(9011, 'scholar');
+    await createUser(9012, 'admin');
+    await pool.query(`UPDATE users SET full_name = 'Zoe' WHERE telegram_id = 9012`);
+    await pool.query(`UPDATE users SET full_name = 'Anna' WHERE telegram_id = 9011`);
+
+    const users = await listUsers();
+
+    expect(users.map((user) => user.fullName)).toEqual(['Anna', 'Zoe']);
+  });
+
+  it('gets a user by id and updates their role', async () => {
+    const user = await createUser(9013, 'scholar');
+
+    expect((await getUserById(user.id))?.role).toBe('scholar');
+
+    const updated = await updateUserRole(user.id, 'faculty');
+
+    expect(updated?.role).toBe('faculty');
+    expect((await getUserById(user.id))?.role).toBe('faculty');
+  });
+
+  it('counts and locks admin rows inside a transaction', async () => {
+    await createUser(9014, 'admin');
+    await createUser(9015, 'admin');
+    await createUser(9016, 'scholar');
+
+    expect(await countAdmins()).toBe(2);
+
+    const locked = await withTransaction((client) => lockAdminRows(client));
+    expect(locked).toHaveLength(2);
   });
 });
