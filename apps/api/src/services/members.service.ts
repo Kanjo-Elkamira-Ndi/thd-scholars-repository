@@ -5,7 +5,6 @@ import {
   type MemberSummary,
   type Role,
   type RosterAuditEntry,
-  type RosterAuditIssue,
   type RosterStatus,
 } from '@thd/shared';
 import pool from '../db/pool';
@@ -17,6 +16,7 @@ import * as rosterRepo from '../repositories/roster.repository';
 import * as usersRepo from '../repositories/users.repository';
 import { AppError } from '../utils/errors';
 import { notify } from './notifications.service';
+import { computeRosterAudit } from './roster-audit.service';
 
 interface MemberRow {
   id: string;
@@ -32,17 +32,6 @@ interface MemberRow {
 }
 
 const FLAGGING_STATUSES = new Set<string>(['graduated', 'withdrawn']);
-
-interface RosterAuditRow {
-  id: string;
-  user_id: string;
-  registration_id: string;
-  roster_status: string;
-  cohort_year: number;
-  is_member: boolean | null;
-  member_status: string | null;
-  checked_at: Date | null;
-}
 
 export const listMembers = async (): Promise<MemberSummary[]> => {
   const { rows } = await pool.query<MemberRow>(
@@ -81,54 +70,7 @@ export const listMembers = async (): Promise<MemberSummary[]> => {
   }));
 };
 
-export const listRosterAudit = async (): Promise<RosterAuditEntry[]> => {
-  const { rows } = await pool.query<RosterAuditRow>(
-    `SELECT r.id, r.user_id, r.registration_id, r.status AS roster_status, r.cohort_year,
-            cm.is_member, cm.member_status, cm.checked_at
-       FROM roster r
-       LEFT JOIN channel_membership cm ON cm.user_id = r.user_id
-      WHERE r.user_id IS NOT NULL
-      ORDER BY r.registration_id`,
-  );
-
-  const entries: RosterAuditEntry[] = [];
-  for (const row of rows) {
-    const status = row.roster_status as RosterStatus;
-    const membership =
-      row.is_member !== null
-        ? {
-            isMember: row.is_member,
-            memberStatus: row.member_status,
-            checkedAt: (row.checked_at as Date).toISOString(),
-          }
-        : null;
-
-    let issue: RosterAuditIssue | null = null;
-    if (!membership) {
-      issue = 'membership_unknown';
-    } else if (FLAGGING_STATUSES.has(status) && membership.isMember) {
-      issue = 'inactive_still_member';
-    } else if (status === 'active' && !membership.isMember) {
-      issue = 'active_not_member';
-    }
-
-    if (!issue) continue;
-
-    entries.push({
-      roster: {
-        id: row.id,
-        userId: row.user_id,
-        registrationId: row.registration_id,
-        status,
-        cohortYear: row.cohort_year,
-      },
-      membership,
-      issue,
-    });
-  }
-
-  return entries;
-};
+export const listRosterAudit = (): Promise<RosterAuditEntry[]> => computeRosterAudit();
 
 export const requestMemberRemoval = async (
   targetUserId: string,
@@ -184,7 +126,7 @@ export const requestMemberRemoval = async (
         },
         client,
       );
-      await notify(target.id, 'member_removal_requested', { initiatedByRole });
+      await notify(target.id, 'member_removal_requested', { initiatedByRole }, client);
     }
 
     return { removal, created };

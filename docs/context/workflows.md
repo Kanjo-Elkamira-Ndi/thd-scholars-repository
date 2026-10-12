@@ -26,15 +26,16 @@ End-to-end user journeys, mapped to the roles in `project-overview.md` and the e
 3. API writes the change, logs old/new value to `audit_logs`.
 4. **If new status is `graduated` or `withdrawn`:** the record is flagged in the "pending access review" view (does not auto-remove from the channel — see Workflow 4).
 
-## 3. Quarterly Roster Audit — implemented (Phase 10)
-**Actor:** Registrar or Admin
+## 3. Quarterly Roster Audit — implemented (Phase 10), automated (Phase 11)
+**Actor:** Registrar or Admin, plus the scheduled `quarterly_audit` job
 **Trigger:** scheduled (quarterly) or manually initiated.
 
-1. User opens Mini App → Roster → Audit view, backed by `GET /api/roster/audit`.
+1. User opens Mini App → Roster → Audit view, backed by `GET /api/roster/audit`; the scheduled job runs the **same** `computeRosterAudit` function (`roster-audit.service.ts`), so the two never disagree. That function takes no `req`/user/role input.
 2. The API cross-references `roster` entries against `channel_membership` (the bot-observed snapshot). The Telegram Bot API cannot enumerate chat members, so the bot's membership-sync loop periodically asks about known `telegram_id`s and pushes a snapshot (`PUT /internal/members/snapshot`); the audit reads that snapshot.
 3. Mismatches are listed, scoped to roster entries only (staff without a roster row are never flagged): `active_not_member`, `inactive_still_member`, and `membership_unknown` (no snapshot yet — surfaced so the view can prompt a manual re-verification rather than silently passing).
-4. For each flagged entry, Admin (or Registrar within their permitted boundary — see `security.md`) confirms removal via `POST /api/members/:userId/remove`.
-5. Each removal enqueues a `member_removals` task (the bot performs the actual kick on its next tick), writes an `audit_logs` entry, and revokes any still-active `invite_links` for that user.
+4. **Scheduled run:** on the `AUDIT_JOB_CRON` schedule (default quarterly), the API claims this quarter's `quarterly_audit` run in `job_runs` (atomically, once per `run_key`, retaken only if the prior run failed or its lease went stale), writes a `quarterly_roster_audit` audit row, and enqueues one `audit_flagged` notification per Admin with the flagged count. Startup catch-up runs the current quarter's audit once if it has not completed.
+5. For each flagged entry, Admin (or Registrar within their permitted boundary — see `security.md`) confirms removal via `POST /api/members/:userId/remove`.
+6. Each removal enqueues a `member_removals` task (the bot performs the actual kick on its next tick), writes an `audit_logs` entry, and revokes any still-active `invite_links` for that user.
 
 ## 4. Access Revocation (Graduation/Withdrawal Follow-Through) — implemented (Phase 10)
 **Actor:** Admin (confirming), triggered from Workflow 2's flag
@@ -45,6 +46,7 @@ End-to-end user journeys, mapped to the roles in `project-overview.md` and the e
 3. Confirmed removal calls `POST /api/members/:userId/remove`, enqueues a `member_removals` task, and logs to `audit_logs`. A registrar may confirm only within their permitted boundary (a flagged graduated/withdrawn record, which also clears `access_review_pending`); re-activating a roster entry cancels any pending removal.
 4. The bot's member-removal loop then leases the task (`POST /internal/members/removals/claim`), bans then unbans the user, and confirms (`.../:id/confirm`).
 5. This two-step design (flag → confirm) exists specifically so no student is auto-kicked by a data-entry change without a human checkpoint — see FR20.
+6. **Weekly reminder (Phase 11):** the `access_review_reminder` job (`ACCESS_REVIEW_REMINDER_CRON`, default Monday 06:00) enqueues one `access_review_reminder` notification to every Admin with the pending count, at most once per ISO week (`run_key` e.g. `2026-W05`; the week is computed in `JOBS_TIMEZONE`). Startup catch-up runs the current week's reminder once if it has not completed.
 
 ## 5. Faculty Posts Content — implemented (Phase 9)
 **Actor:** Faculty
@@ -73,7 +75,7 @@ End-to-end user journeys, mapped to the roles in `project-overview.md` and the e
 
 1. Admin opens Mini App → Users → selects a user.
 2. Admin changes role via `PATCH /api/users/:id/role`. The API refuses a self-change and refuses to demote the last remaining admin (row-locked, concurrency-safe).
-3. API logs the change to `audit_logs`, optionally triggers a notification to the affected user (FR26 — currently a no-PII stub; see `security.md`).
+3. API logs the change to `audit_logs` and enqueues a `role_changed` notification **inside the same transaction** as the role change (so a rolled-back change enqueues nothing). The bot delivers it on its next tick (FR26).
 
 ## 8. Admin Reviews Audit Logs — implemented (Phase 10)
 **Actor:** Admin
@@ -82,13 +84,26 @@ End-to-end user journeys, mapped to the roles in `project-overview.md` and the e
 1. Admin opens Mini App → Audit Logs, backed by `GET /api/audit-logs`, filterable by action/actor/target type.
 2. This view is read-only — the table is append-only and enforced by a database trigger that rejects `UPDATE`/`DELETE` (see `security.md`).
 
-## 9. Repeated Registration Failure (Abuse/Error Signal)
+## 9. Repeated Registration Failure (Abuse/Error Signal) — implemented (Phase 11)
 **Actor:** system-initiated, surfaces to Registrar/Admin
-**Trigger:** the same `telegram_id` submits failing registrations repeatedly (threshold configurable).
+**Trigger:** the same `telegram_id` submits failing registrations repeatedly (`REPEATED_REGISTRATION_FAILURE_THRESHOLD` within `REPEATED_REGISTRATION_FAILURE_WINDOW_SECONDS`).
 
 1. API detects the pattern on a registration attempt.
-2. API sends a notification to Registrar/Admin (FR27) — does not auto-block the user, since this could be a legitimate student making a data-entry mistake.
+2. After the registration transaction commits (best-effort, so a notification outage never rolls back a user's registration) the API enqueues a `repeated_registration_failure` notification to every Admin and Registrar. The dedupe key includes a time bucket (`repeated_failure:{userId}:{bucket}`), so re-hitting the threshold in the same window enqueues nothing further per recipient. It never auto-blocks the user, since this could be a legitimate student making a data-entry mistake.
 3. Registrar/Admin can reach out directly or pre-load a correct roster entry (Workflow: `POST /api/roster`) if the issue is a roster gap rather than user error.
+
+## 10. Notification Delivery (Bot → User) — implemented (Phase 11)
+**Actor:** API (enqueue) → Bot Service (deliver)
+**Trigger:** any of the five notification events.
+
+1. A domain action calls `notifications.service` with the event and payload. Admin/Registrar-facing events (`audit_flagged`, `access_review_reminder`, `repeated_registration_failure`) fan out to **all** matching recipients; each gets its own row keyed by `(recipient_user_id, dedupe_key)`.
+2. The `notifications` row is written in the action's transaction where correctness demands it (`role_changed`), otherwise right after commit (`repeated_registration_failure`).
+3. The bot's notification loop leases pending rows (`POST /internal/notifications/claim`), renders the HTML template (role names are whitelisted; all interpolations are escaped), DMs the user, and confirms (`.../:id/confirm`).
+4. A transient failure is retried with exponential backoff up to `NOTIFICATION_MAX_ATTEMPTS`. A **terminal** failure (bot blocked, chat not found, user deactivated) fails immediately and is logged at `warn` with only the role and user id — no PII. Because the bot can only DM users who have started it, deploy docs require every Admin and Registrar to press **Start** once.
+
+## FR26 / FR27 coverage note
+- **FR27** (repeated registration failure → alert staff): Workflow 9 (`repeated_registration_failure`).
+- **FR26** (notify a user when their role or access changes): covered by `role_changed` (Workflow 7) and `member_removal_requested`. There is deliberately **no** `registration_received` notification — a registration decision already produces an approve/decline DM through the join-request delivery loop (Workflow 1), so a second message on that path would be redundant.
 
 ## Relationship to Phase 1
 Workflows 1 (registration) and parts of 4 (removal) replace the manual steps from the Phase 1 Google Form process. The onboarding/approval message copy and the hashtag/content-tagging conventions carry over unchanged — only the mechanism moves from manual Sheet-checking to automated roster matching.

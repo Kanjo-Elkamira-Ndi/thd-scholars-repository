@@ -3,7 +3,7 @@ import { withTransaction } from '../db/transaction';
 import * as auditRepo from '../repositories/audit-logs.repository';
 import * as usersRepo from '../repositories/users.repository';
 import { AppError } from '../utils/errors';
-import { notify } from './notifications.service';
+import { notifyRoleChanged } from './notifications.service';
 import { AUDIT_ACTIONS, AUDIT_TARGET_TYPES } from '@thd/shared';
 
 export const listUsers = (): Promise<User[]> => usersRepo.listUsers();
@@ -44,7 +44,7 @@ export const changeUserRole = async (
       },
       client,
     );
-    await notify(targetId, 'role_changed', { from: target.role, to: role });
+    await notifyRoleChanged(targetId, target.role, role, client);
 
     return updated;
   });

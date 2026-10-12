@@ -16,6 +16,10 @@ import {
   postConfirmMemberRemoval,
   putMembershipSnapshot,
 } from '../controllers/internal-members-controller';
+import {
+  postClaimNotifications,
+  postConfirmNotification,
+} from '../controllers/internal-notifications-controller';
 import { asyncHandler } from '../middleware/async-handler';
 
 const router = Router();
@@ -34,5 +38,8 @@ router.get('/members/reconcile-targets', asyncHandler(getReconcileTargets));
 router.put('/members/snapshot', asyncHandler(putMembershipSnapshot));
 router.post('/members/removals/claim', asyncHandler(postClaimMemberRemovals));
 router.post('/members/removals/:id/confirm', asyncHandler(postConfirmMemberRemoval));
+
+router.post('/notifications/claim', asyncHandler(postClaimNotifications));
+router.post('/notifications/:id/confirm', asyncHandler(postConfirmNotification));
 
 export default router;

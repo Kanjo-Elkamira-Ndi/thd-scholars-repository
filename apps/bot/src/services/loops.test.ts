@@ -91,3 +91,27 @@ describe('bot loop isolation', () => {
     stopContentLoop();
   });
 });
+
+describe('notification delivery loop isolation', () => {
+  it('notification loop logs and survives a rejecting tick', async () => {
+    vi.useFakeTimers();
+    const { startNotificationLoop, stopNotificationLoop } = await import('./notification-delivery');
+    const log = logger();
+    const api = { claimNotifications: vi.fn().mockRejectedValue(new Error('boom')) };
+
+    startNotificationLoop({
+      api: api as never,
+      telegram: {} as never,
+      logger: log as never,
+      intervalMs: 1000,
+      batchSize: 10,
+    });
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(log.error).toHaveBeenCalledWith(
+      { err: expect.any(Error) },
+      'notification delivery tick failed',
+    );
+    stopNotificationLoop();
+  });
+});

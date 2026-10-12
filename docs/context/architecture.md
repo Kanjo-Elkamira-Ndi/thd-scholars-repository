@@ -53,8 +53,9 @@ A Telegraf-based process that:
 - Sends notifications (approval, decline, role change, etc.).
 - Runs a **membership-sync loop** (default every 15 min, throttled to ~20 `getChatMember` calls/sec) that asks the API for a bounded set of known `telegram_id`s to re-check and pushes the observed snapshot back (`PUT /internal/members/snapshot`). The Telegram Bot API cannot enumerate chat members, so the API cannot refresh membership on its own.
 - Runs a **member-removal loop** that leases queued removals and performs `banChatMember` → `unbanChatMember({ only_if_banned: true })` (a "user not in chat" error counts as success), then confirms the outcome.
+- Runs a **notification delivery loop (Phase 11)** that leases `notifications` rows, DMs the recipient, and confirms — the same outbound-only, leased-outbox pattern as join requests and content.
 
-All four bot loops (join-request delivery, content delivery, membership sync, member removal) are independent: each wraps its own tick in a `try/catch` so one loop's failure is logged and never stops the others.
+All five bot loops (join-request delivery, content delivery, membership sync, member removal, notifications) are independent: each wraps its own tick in a `try/catch` so one loop's failure is logged and never stops the others.
 
 The bot is a **thin client** over the API — it should contain minimal business logic itself; verification rules, RBAC, and roster logic live in the API service so both the bot and the Mini App stay consistent.
 
@@ -71,6 +72,9 @@ Single Postgres instance, raw `pg` driver, no ORM. See `database-schema.md` for 
 ### 5. Cloud Storage
 Large files (above the configurable Drive threshold) are streamed by the API to a Google Shared Drive (service account) and the bot posts the share link to the channel instead of a raw Telegram upload. Smaller files are uploaded to Telegram through the Bot Service. The Mini App never talks to Drive directly.
 
+### 6. Background Jobs (in-process, API)
+The API runs a small in-process scheduler (`apps/api/src/jobs/`, `node-cron`) for periodic work — `quarterly_audit` and `access_review_reminder`. `JOBS_ENABLED` toggles it (off under `NODE_ENV=test`), and a dev entrypoint (`npm run run:job -- <job> [--force]`) runs any job through the same `runJob` path for local use. See `security.md` for the lock/claim guarantees.
+
 ## Data flow: Registration (the critical path)
 1. User opens the bot → taps a deep link into the Mini App registration form.
 2. Mini App submits the form to `POST /api/registrations` with Telegram `initData` attached.
@@ -85,6 +89,12 @@ Large files (above the configurable Drive threshold) are streamed by the API to 
 2. **Size routing happens at the API, not the Mini App.** A file at or below the Drive threshold (`maxUploadSizeBytes`) is staged on disk and uploaded through the Bot Service to Telegram (Telegram caps a single bot upload at 50 MB). A file above the threshold is streamed resumably by the API to a Google **Shared Drive**, and only the share link is stored — this is the path for large media; there is no "direct-to-Telegram 2 GB upload". Anything above `maxContentUploadBytes` is rejected.
 3. The API writes the `content_posts` row with `pending_action = 'publish'` (`201`, immediate — no external call in the request path).
 4. The Bot Service outbox loop leases the task, posts the formatted message, and confirms; the API stores `telegram_message_id`. Undelivered posts are retried with backoff and marked failed after a cap.
+
+## Data flow: Notifications & background jobs (Phase 11 — implemented)
+1. A domain action emits one of five notification events. Admin/Registrar events (`audit_flagged`, `access_review_reminder`, `repeated_registration_failure`) fan out to all matching users; each recipient gets a concrete `notifications` row.
+2. `role_changed` is enqueued inside the same transaction as the role change; `repeated_registration_failure` is best-effort after the registration commits.
+3. The Bot Service notification loop leases pending rows (`POST /internal/notifications/claim`), renders the event template, DMs the user, and confirms (`POST /internal/notifications/:id/confirm`). Transient failures back off; terminal failures (bot blocked / unreachable) fail immediately.
+4. The API scheduler (in-process `node-cron`, gated by `JOBS_ENABLED`) runs `quarterly_audit` (default quarterly) and `access_review_reminder` (default weekly). Each run is claimed atomically in `job_runs` by `(job, run_key)` under a per-job advisory lock, so replicas and restarts cannot double-run a completed period. A `npm run run:job -- <job> [--force]` dev script invokes the same `runJob` path and refuses to run when `NODE_ENV=production`.
 
 ## Why a shared API instead of the bot and Mini App each owning logic
 Two independent implementations of "is this user allowed to do X" is how RBAC bugs happen. The API is the only place authorization decisions are made; both the bot and the Mini App are callers, not deciders. See `security.md`.

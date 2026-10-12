@@ -9,6 +9,9 @@ PostgreSQL. Raw `pg` driver — no ORM. All access goes through `apps/api/src/re
 - `join_request_status`: `'approved' | 'declined' | 'pending'`
 - `join_request_delivery_status`: `'pending' | 'processing' | 'delivered' | 'failed'`
 - `content_format`: `'audio_lecture' | 'video_seminar' | 'ebook' | 'research_pdf'`
+- `notification_event`: `'role_changed' | 'member_removal_requested' | 'audit_flagged' | 'access_review_reminder' | 'repeated_registration_failure'`
+- `notification_status`: `'pending' | 'processing' | 'sent' | 'failed'`
+- `job_run_status`: `'started' | 'completed' | 'failed'`
 
 ## Tables
 
@@ -157,6 +160,43 @@ Outbox for channel removals initiated by admins or the roster audit (migration `
 
 A partial unique index enforces at most one open (`pending`/`processing`) removal per user; a partial queue index drives the claim/backoff loop.
 
+### `notifications`
+Outbox for user-directed DMs (migration `0011`). The API writes rows; the Bot Service polls, sends the DM, and confirms the outcome — the API never calls the bot. Recipients are resolved to **concrete user ids** at enqueue time (one row per recipient) so delivery and dedupe are per-person.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` PK | |
+| `recipient_user_id` | `uuid` FK → `users.id` | not null |
+| `recipient_role` | `text` | not null — role snapshot at enqueue time |
+| `event` | `text` | not null — `'role_changed' \| 'member_removal_requested' \| 'audit_flagged' \| 'access_review_reminder' \| 'repeated_registration_failure'` |
+| `payload` | `jsonb` | not null, default `'{}'` — template inputs (e.g. `{ from, to }`, `{ total }`) |
+| `dedupe_key` | `text` | not null — event identity; a random uuid for events that must not be deduped |
+| `status` | `text` | not null, default `'pending'` — `'pending' \| 'processing' \| 'sent' \| 'failed'` |
+| `attempts` | `integer` | not null, default `0` |
+| `next_attempt_at` | `timestamptz` | nullable — backoff gate |
+| `claimed_at` | `timestamptz` | nullable — lease timestamp |
+| `last_error` | `text` | nullable |
+| `sent_at` | `timestamptz` | nullable |
+| `created_at` | `timestamptz` | default `now()` |
+
+A **unique index on `(recipient_user_id, dedupe_key)`** guarantees at most one delivery per recipient per event (not dedupe_key alone — a single event legitimately fans out to several admins/registrars). Partial `notifications_queue` and `notifications_processing` indexes drive the claim/backoff loop. `dedupe_key` is never null.
+
+### `job_runs`
+One row per scheduled job attempt, giving crash-safe exactly-once semantics per `(job, run_key)`.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` PK | |
+| `job` | `text` | not null — `'quarterly_audit' \| 'access_review_reminder'` |
+| `run_key` | `text` | not null — e.g. `2026-Q1`, `2026-W05` |
+| `status` | `text` | not null, default `'started'` — `'started' \| 'completed' \| 'failed'` |
+| `started_at` | `timestamptz` | default `now()` |
+| `completed_at` | `timestamptz` | nullable |
+| `error` | `text` | nullable |
+| `created_at` | `timestamptz` | default `now()` |
+
+Unique `(job, run_key)`. A run is retaken **atomically** via `INSERT ... ON CONFLICT (job, run_key) DO UPDATE ... WHERE <claimable> RETURNING id` where claimable = `status = 'failed'` OR (`status = 'started'` AND `started_at < now() - JOB_RUN_STALE_MINUTES`). A completed run is never rerun. The quarterly job records `audit_logs.target_id = job_runs.id` (target type `jobs`) with the run key in `details.runKey`.
+
 ## Relationships (summary)
 ```
 users 1───* roster            (via roster.user_id)
@@ -164,6 +204,8 @@ users 1───* join_requests     (via join_requests.user_id)
 users 1───* invite_links      (via invite_links.created_for_user_id)
 users 1───* content_posts     (via content_posts.posted_by)
 users 1───* audit_logs        (via audit_logs.actor_user_id)
+users 1───* notifications     (via notifications.recipient_user_id)
+job_runs    (standalone — one row per scheduled job run)
 ```
 
 ## Indexing guidance
@@ -173,6 +215,9 @@ users 1───* audit_logs        (via audit_logs.actor_user_id)
 - `content_posts.discipline_tag`, `content_posts.format_tag`, `content_posts.cohort_tag` — composite or separate indexes depending on actual query patterns once the content index search is built; start with separate B-tree indexes and revisit if search gets slow.
 - `audit_logs.created_at` — index, since the audit viewer will paginate by recency.
 - `join_requests(user_id, created_at)` — composite index, since registration decisions and the repeated-failure check count recent declines per user.
+- `notifications(recipient_user_id, dedupe_key)` — unique index; enforces per-recipient dedupe of notification events.
+- `notifications(status, next_attempt_at)` — partial queue index driving the bot delivery loop.
+- `job_runs(job, run_key)` — unique index; atomic job claim/retake.
 
 ## Migration file naming
 `NNNN_short_description.sql`, zero-padded, sequential, never renumbered:
@@ -187,6 +232,7 @@ users 1───* audit_logs        (via audit_logs.actor_user_id)
 0008_join_request_delivery.sql
 0009_content_delivery.sql
 0010_admin_membership.sql
+0011_jobs_notifications.sql
 ```
 
 `schema_migrations` (created by the runner in `apps/api/src/db/migrate.ts`): one row per applied migration — `name` (primary key, the filename) and `applied_at`. Never edited; the runner appends to it.

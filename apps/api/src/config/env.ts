@@ -37,6 +37,19 @@ const EnvSchema = z
     MEMBER_REMOVAL_BACKOFF_BASE_SECONDS: z.coerce.number().int().positive().default(60),
     GOOGLE_SERVICE_ACCOUNT_JSON: z.string().min(1).optional(),
     GOOGLE_DRIVE_FOLDER_ID: z.string().min(1).optional(),
+    JOBS_ENABLED: z
+      .string()
+      .optional()
+      .default('true')
+      .transform((value) => value === 'true'),
+    JOBS_TIMEZONE: z.string().min(1).default('UTC'),
+    AUDIT_JOB_CRON: z.string().min(1).default('0 6 1 1,4,7,10 *'),
+    ACCESS_REVIEW_REMINDER_CRON: z.string().min(1).default('0 6 * * 1'),
+    JOB_RUN_STALE_MINUTES: z.coerce.number().int().positive().default(30),
+    NOTIFICATION_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
+    NOTIFICATION_BACKOFF_BASE_SECONDS: z.coerce.number().int().positive().default(60),
+    NOTIFICATION_LEASE_SECONDS: z.coerce.number().int().positive().default(120),
+    NOTIFICATION_BATCH_SIZE: z.coerce.number().int().positive().default(10),
   })
   .superRefine((data, ctx) => {
     if (data.AUTH_MOCK_ENABLED && data.NODE_ENV === 'production') {
@@ -57,7 +70,11 @@ const parseEnv = (): Env => {
       .join('; ');
     throw new Error(`Invalid environment variables: ${details}`);
   }
-  return result.data;
+  const data = result.data;
+  if (data.NODE_ENV === 'test') {
+    data.JOBS_ENABLED = false;
+  }
+  return data;
 };
 
 export const env = parseEnv();

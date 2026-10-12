@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "test:integration": "vitest run -c vitest.integration.config.ts",
     "seed": "tsx src/db/seeds/seed-users.ts",
-    "make:init-data": "tsx scripts/make-init-data.ts"
+    "make:init-data": "tsx scripts/make-init-data.ts",
+    "run:job": "tsx scripts/run-job.ts"
   },
   "dependencies": {
     "@thd/shared": "*",
@@ -21,6 +22,7 @@
     "express-rate-limit": "^8.7.1",
     "helmet": "^8.3.0",
     "multer": "^2.4.0",
+    "node-cron": "^3.0.3",
     "pg": "^8.23.1",
     "pino": "^10.4.0",
     "pino-pretty": "^13.2.0",
@@ -31,6 +33,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/multer": "^2.3.0",
+    "@types/node-cron": "^3.0.11",
     "@types/pg": "^8.23.1",
     "@types/supertest": "^7.2.1",
     "supertest": "^7.3.1",

@@ -10,6 +10,7 @@ Replaces a manual, Google Form-based approval process with a database-backed sys
 - **Gates content by role** — Faculty post lectures/seminars/resources; Scholars browse a searchable, tagged content index; Registrars manage enrollment status; Admins control everything.
 - **Keeps an audit trail** — every privileged action (approval, decline, role change, removal) is logged.
 - **Handles large media sensibly** — big video files route to cloud storage instead of bloating the Telegram channel.
+- **Runs scheduled jobs and notifies people** — a quarterly roster audit and a weekly access-review reminder run in-process (claimed once per period in `job_runs`), and role changes, removals, audit flags, and repeated-failure alerts reach the right users by DM.
 
 ## Tech stack
 
@@ -111,8 +112,18 @@ npm run dev --workspace=apps/miniapp
 | `api` | `MEMBER_REMOVAL_MAX_BATCH` | Max removals returned per claim (default `100`) |
 | `api` | `GOOGLE_SERVICE_ACCOUNT_JSON` | Service-account JSON used to upload large files to a Shared Drive (optional; unset disables Drive routing) |
 | `api` | `GOOGLE_DRIVE_FOLDER_ID` | Destination Shared Drive folder id (optional) |
+| `api` | `JOBS_ENABLED` | Enables the in-process job scheduler (default `true`; forced off under `NODE_ENV=test`) |
+| `api` | `JOBS_TIMEZONE` | Timezone for quarter/week keys (default `UTC`) |
+| `api` | `AUDIT_JOB_CRON` | Quarterly-audit cron (default `0 6 1 1,4,7,10 *`) |
+| `api` | `ACCESS_REVIEW_REMINDER_CRON` | Access-review-reminder cron (default `0 6 * * 1`, Mondays) |
+| `api` | `JOB_RUN_STALE_MINUTES` | Minutes before a `started` job run is considered stale and retaken (default `30`) |
+| `api` | `NOTIFICATION_MAX_ATTEMPTS` | Notification delivery retries before a row is marked failed (default `5`) |
+| `api` | `NOTIFICATION_BACKOFF_BASE_SECONDS` | Exponential-backoff base for notification retries (default `60`) |
+| `api` | `NOTIFICATION_LEASE_SECONDS` | Processing lease before a notification claim is reclaimed (default `120`) |
+| `api` | `NOTIFICATION_BATCH_SIZE` | Max notifications returned per claim (default `10`) |
 | `bot` | `BOT_TOKEN`                 | Telegram Bot API token                     |
 | `bot` | `API_BASE_URL`              | Where the bot reaches the API service      |
+| `bot` | `BOT_NOTIFICATION_BATCH_SIZE` | Max notifications delivered per poll (default `10`) |
 
 `BOT_TOKEN` is now required by the API as well — it is the HMAC key the API uses to verify Telegram `initData`. Drive routing needs `GOOGLE_SERVICE_ACCOUNT_JSON` **and** `GOOGLE_DRIVE_FOLDER_ID`: the service account must have access to a Shared Drive, and `CONTENT_STAGING_DIR` must be a persistent volume shared across API replicas.
 
@@ -133,6 +144,7 @@ Runs as a separate process from the API. It holds only the bot token and the int
 | `BOT_OUTBOX_BATCH_SIZE` | Max join-request delivery tasks per poll (default `10`)              |
 | `BOT_CONTENT_BATCH_SIZE` | Max content publish/delete tasks per poll (default `10`)           |
 | `BOT_MEMBER_REMOVAL_BATCH_SIZE` | Max member-removal tasks per poll (default `10`)             |
+| `BOT_NOTIFICATION_BATCH_SIZE` | Max notification DMs per poll (default `10`)                   |
 | `BOT_MEMBERSHIP_SYNC_INTERVAL_MS` | Membership reconciliation cadence in ms (default `900000` = 15 min) |
 | `BOT_MEMBERSHIP_SYNC_RATE_PER_SEC` | Max `getChatMember` calls per second (default `20`)            |
 | `BOT_MODE`           | `polling` (dev) or `webhook` (prod); defaults from `NODE_ENV` when unset |
@@ -159,6 +171,10 @@ npm run seed --workspace=apps/api
 # print a signed `Authorization: tma <initData>` header for a seeded role
 npm run make:init-data --workspace=apps/api -- --role=admin
 
+# run a background job through the same path as the scheduler (e.g. quarterly_audit)
+npm run run:job --workspace=apps/api -- quarterly_audit
+npm run run:job --workspace=apps/api -- access_review_reminder --force
+
 # run the test suite (vitest) across workspaces
 npm test
 
@@ -172,6 +188,8 @@ npm run test:integration --workspace=apps/api
 - `apps/bot` needs its own HTTPS endpoint if running in webhook mode (recommended for production over polling).
 - `packages/shared` must be built **before** any of the three apps in CI/deploy — they all depend on it.
 - Database migrations in `apps/api/src/db/migrations/` must be applied as an explicit deploy step — nothing runs them automatically.
+- Notification DMs only reach users who have started the bot. Every Admin and Registrar must press **Start** on the bot (otherwise their notification rows fail terminally and are logged, not retried forever).
+- The job scheduler runs in-process in the API. Run a single API replica with `JOBS_ENABLED=true` (or rely on the per-run advisory lock/`job_runs` claim) so periodic jobs do not run concurrently across replicas.
 
 ## Status
 

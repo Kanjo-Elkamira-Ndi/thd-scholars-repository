@@ -7,3 +7,4 @@ export * from './decline';
 export * from './join-request-pending';
 export * from './invite-link';
 export * from './content-post';
+export * from './notification';

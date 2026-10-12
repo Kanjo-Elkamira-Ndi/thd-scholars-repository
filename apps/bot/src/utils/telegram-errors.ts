@@ -6,6 +6,15 @@ const USER_NOT_IN_CHAT_MARKERS = [
   'participant not found',
   'chat member not found',
 ];
+const BOT_BLOCKED_MARKERS = [
+  'bot was blocked by the user',
+  'bot was kicked',
+  'forbidden',
+  'user is deactivated',
+  'chat not found',
+  "bot can't initiate conversation with a user",
+  'peer_id_invalid',
+];
 
 const extractDescription = (err: unknown): string => {
   if (typeof err !== 'object' || err === null) {
@@ -42,4 +51,12 @@ export const isUserNotInChat = (err: unknown): boolean => {
     return false;
   }
   return USER_NOT_IN_CHAT_MARKERS.some((marker) => description.includes(marker));
+};
+
+export const isBotBlocked = (err: unknown): boolean => {
+  const description = extractDescription(err).toLowerCase();
+  if (description === '') {
+    return false;
+  }
+  return BOT_BLOCKED_MARKERS.some((marker) => description.includes(marker));
 };

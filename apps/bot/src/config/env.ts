@@ -17,6 +17,7 @@ export interface BotEnv {
   membershipSyncIntervalMs: number;
   membershipSyncRatePerSec: number;
   memberRemovalBatchSize: number;
+  notificationBatchSize: number;
   apiTimeoutMs: number;
   mode: 'polling' | 'webhook';
   webhook?: { domain: string; path: string; secretToken: string; port: number };
@@ -35,6 +36,7 @@ const RawEnvSchema = z.object({
   BOT_MEMBERSHIP_SYNC_INTERVAL_MS: z.coerce.number().int().positive().default(900_000),
   BOT_MEMBERSHIP_SYNC_RATE_PER_SEC: z.coerce.number().int().positive().default(20),
   BOT_MEMBER_REMOVAL_BATCH_SIZE: z.coerce.number().int().positive().default(10),
+  BOT_NOTIFICATION_BATCH_SIZE: z.coerce.number().int().positive().default(10),
   BOT_MODE: z.enum(['polling', 'webhook']).optional(),
   BOT_WEBHOOK_DOMAIN: z.string().url().optional(),
   BOT_WEBHOOK_PATH: z.string().min(1).default('/telegram/webhook'),
@@ -67,6 +69,7 @@ export const parseEnv = (raw: NodeJS.ProcessEnv): BotEnv => {
     membershipSyncIntervalMs: data.BOT_MEMBERSHIP_SYNC_INTERVAL_MS,
     membershipSyncRatePerSec: data.BOT_MEMBERSHIP_SYNC_RATE_PER_SEC,
     memberRemovalBatchSize: data.BOT_MEMBER_REMOVAL_BATCH_SIZE,
+    notificationBatchSize: data.BOT_NOTIFICATION_BATCH_SIZE,
     apiTimeoutMs: data.API_TIMEOUT_MS,
     mode,
   };

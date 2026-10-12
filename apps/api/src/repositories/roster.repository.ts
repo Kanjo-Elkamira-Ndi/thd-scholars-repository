@@ -210,3 +210,10 @@ export const listRoster = async (
 
   return { items: rows.map(mapRosterRow), total: Number(countRows[0].total) };
 };
+
+export const countAccessReviewPending = async (db: Db = pool): Promise<number> => {
+  const { rows } = await db.query<{ count: string }>(
+    'SELECT count(*)::text AS count FROM roster WHERE access_review_pending = true',
+  );
+  return Number(rows[0].count);
+};

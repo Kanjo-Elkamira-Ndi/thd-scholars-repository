@@ -61,6 +61,8 @@ Update a roster entry, most commonly `status`. `:id` must be a UUID (else `400 V
 ### `GET /api/roster/audit`
 Returns the quarterly-audit view: roster entries whose status no longer matches actual channel membership.
 - **Auth:** Registrar, Admin.
+- **Response:** `200 { items: RosterAuditItem[], total }` — each item carries the roster entry plus the flagging reason(s) (see `FLAGGING_STATUSES` in `roster-audit.service.ts`).
+- **Behaviour:** computed by the same shared `computeRosterAudit()` used by the quarterly audit job, so the API view and the scheduled notification can never disagree. The function is pure with respect to request context (no user/role/`req` dependency).
 
 ## Content (Faculty + Admin)
 
@@ -207,6 +209,19 @@ Bot reports the outcome of a leased content task; the API finalizes the `content
 Stream the staged bytes for a file-routed post so the bot can upload them to Telegram.
 - **Path param:** `id` must be a UUID (else `400 VALIDATION_ERROR`).
 - **Response:** `200` with the stored `Content-Type` and `Content-Disposition: attachment; filename="…"`; `404 NOT_FOUND` when the post, its staged file name, or the file on disk is absent.
+
+### `POST /internal/notifications/claim`
+Lease up to `limit` pending notifications for the Bot Service delivery loop.
+- **Body:** `{ limit?: number }` (1–100, optional; defaults to `NOTIFICATION_BATCH_SIZE`).
+- **Response:** `200 { items: NotificationTask[] }` — each item carries `{ id, userId, telegramId, event, payload, attempts, recipientRole }`.
+- **Behaviour:** first reclaims stale leases (`processing` older than `NOTIFICATION_LEASE_SECONDS`), then leases claimable rows (`status = 'pending' AND next_attempt_at <= now()`) with `FOR UPDATE SKIP LOCKED`, marking them `processing` and incrementing `attempts`. Only recipients that still have a `telegram_id` are leased. A row is never leased twice concurrently.
+
+### `POST /internal/notifications/:id/confirm`
+Bot reports the outcome of a leased notification; the API finalizes the `notifications` row.
+- **Path param:** `id` must be a UUID (else `400 VALIDATION_ERROR`); unknown → `404 NOT_FOUND`.
+- **Body:** `{ outcome: 'sent' | 'failed', error?, terminal? }` (`notificationConfirmSchema`).
+- **Response:** `200 { status: NotificationStatus }`.
+- **Behaviour:** `sent` marks the row sent. `failed` reschedules with exponential backoff, or — when `terminal = true` (bot blocked, chat not found, user deactivated) or `attempts` reaches `NOTIFICATION_MAX_ATTEMPTS` — marks the row failed. Terminal delivery failures are logged at `warn` with only the recipient role and user id (no PII). Idempotent: repeating on an already-terminal row is a 200 no-op.
 
 ## Conventions
 - All list endpoints are paginated by default (`page`, `pageSize`, default `pageSize=20`, max `100`).

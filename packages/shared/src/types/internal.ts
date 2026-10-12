@@ -2,7 +2,9 @@ import type {
   ContentAction,
   ContentFormat,
   DisciplineTag,
+  NotificationEvent,
   RegistrationDecision,
+  Role,
 } from './enums';
 
 export interface JoinRequestDeliveryTask {
@@ -63,4 +65,18 @@ export interface ClaimMemberRemovalsResponse {
 
 export interface MembershipReconcileTargetsResponse {
   targets: MembershipReconcileTarget[];
+}
+
+export interface NotificationTask {
+  id: string;
+  userId: string;
+  telegramId: number;
+  event: NotificationEvent;
+  payload: Record<string, unknown>;
+  attempts: number;
+  recipientRole: Role;
+}
+
+export interface ClaimNotificationsResponse {
+  items: NotificationTask[];
 }

@@ -7,6 +7,9 @@ import type {
   JoinRequestStatus,
   MemberRemovalInitiator,
   MemberRemovalStatus,
+  NotificationEvent,
+  NotificationStatus,
+  JobRunStatus,
   Role,
   RosterStatus,
 } from './enums';
@@ -149,6 +152,32 @@ export interface RosterAuditEntry {
   };
   membership: ChannelMembership | null;
   issue: RosterAuditIssue;
+}
+
+export interface Notification {
+  id: string;
+  recipientUserId: string;
+  event: NotificationEvent;
+  payload: Record<string, unknown>;
+  dedupeKey: string;
+  status: NotificationStatus;
+  attempts: number;
+  nextAttemptAt: string | null;
+  claimedAt: string | null;
+  sentAt: string | null;
+  lastError: string | null;
+  createdAt: string;
+}
+
+export interface JobRun {
+  id: string;
+  job: string;
+  runKey: string;
+  status: JobRunStatus;
+  details: Record<string, unknown> | null;
+  lastError: string | null;
+  startedAt: string;
+  finishedAt: string | null;
 }
 
 export interface DashboardStats {

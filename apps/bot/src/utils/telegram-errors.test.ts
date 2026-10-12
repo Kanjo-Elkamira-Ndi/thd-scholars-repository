@@ -48,3 +48,15 @@ describe('isMessageGone', () => {
     expect(isMessageGone(null)).toBe(false);
   });
 });
+
+describe('isBotBlocked', () => {
+  it('detects blocked/deactivated/unreachable recipients', async () => {
+    const { isBotBlocked } = await import('./telegram-errors');
+    expect(isBotBlocked({ description: 'Forbidden: bot was blocked by the user' })).toBe(true);
+    expect(isBotBlocked({ description: 'Bad Request: chat not found' })).toBe(true);
+    expect(isBotBlocked({ description: "Forbidden: bot can't initiate conversation with a user" })).toBe(true);
+    expect(isBotBlocked({ description: 'Forbidden: user is deactivated' })).toBe(true);
+    expect(isBotBlocked({ description: 'Too Many Requests: retry later' })).toBe(false);
+    expect(isBotBlocked(undefined)).toBe(false);
+  });
+});

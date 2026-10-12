@@ -79,7 +79,7 @@ export const resetTestDatabase = async (): Promise<void> => {
       'SELECT key, value::text AS value FROM settings',
     );
     await client.query(
-      'TRUNCATE users, roster, join_requests, invite_links, content_posts, audit_logs, channel_membership, member_removals RESTART IDENTITY CASCADE',
+      'TRUNCATE users, roster, join_requests, invite_links, content_posts, audit_logs, channel_membership, member_removals, notifications, job_runs RESTART IDENTITY CASCADE',
     );
     for (const row of settings) {
       await client.query('INSERT INTO settings (key, value) VALUES ($1, $2::jsonb)', [

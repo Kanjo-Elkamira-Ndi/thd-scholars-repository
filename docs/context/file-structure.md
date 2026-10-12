@@ -17,9 +17,9 @@ thd-scholars-repository/
 │   │   │   ├── validators/          # zod schemas for request bodies (imports from packages/shared where shared)
 │   │   │   ├── types/               # API-only types
 │   │   │   ├── utils/               # pure helper functions
-│   │   │   ├── jobs/                # node-cron jobs (quarterly audit, graduation review)
+│   │   │   ├── jobs/                # node-cron scheduler + runJob runtime (quarterly audit, access-review reminder)
 │   │   │   ├── db/
-│   │   │   │   ├── migrations/      # 0001_init_users_roster.sql ... 0007_roster_access_review.sql (sequential, never edited after merge)
+│   │   │   │   ├── migrations/      # 0001_init_users_roster.sql ... 0011_jobs_notifications.sql (sequential, never edited after merge)
 │   │   │   │   ├── seeds/           # dev-only seed data (dev-users.ts fixtures, seed-users.ts runner)
 │   │   │   │   ├── testing/         # test-DB harness: test-database.ts (create/migrate/reset), global-setup.ts, fixtures.ts
 │   │   │   │   ├── migrate.ts       # migration runner (tracks applied files in schema_migrations)
@@ -39,8 +39,8 @@ thd-scholars-repository/
 │   │   ├── src/
 │   │   │   ├── commands/            # /start, /help, /mystatus
 │   │   │   ├── handlers/            # chat_join_request handler, callback_query handler
-│   │   │   ├── templates/           # message template builders (approval, decline, content post)
-│   │   │   ├── services/            # thin wrappers calling the API service
+│   │   │   ├── templates/           # message template builders (approval, decline, content post, notification)
+│   │   │   ├── services/            # thin wrappers calling the API service (delivery, content, member removal, notifications)
 │   │   │   ├── middleware/          # logging, error handling
 │   │   │   ├── bot.ts               # Telegraf instance assembly
 │   │   │   └── index.ts             # entrypoint (polling in dev, webhook in prod)
@@ -108,7 +108,7 @@ thd-scholars-repository/
 └── README.md
 ```
 
-**API dev scripts:** `npm run seed --workspace=apps/api` applies the `src/db/seeds` fixtures (one user per role; refuses to run with `NODE_ENV=production`), and `npm run make:init-data --workspace=apps/api -- --role=<role>` prints a signed `Authorization: tma <initData>` header for testing the API locally. Unit tests (`vitest`) live next to the code as `*.test.ts` and run with `npm test` (DB-free). Integration tests are colocated as `*.int.test.ts` and run with `npm run test:integration --workspace=apps/api` against a disposable database derived from `DATABASE_URL` (a `_test` suffix is appended, then created/migrated/reset per run).
+**API dev scripts:** `npm run seed --workspace=apps/api` applies the `src/db/seeds` fixtures (one user per role; refuses to run with `NODE_ENV=production`), and `npm run make:init-data --workspace=apps/api -- --role=<role>` prints a signed `Authorization: tma <initData>` header for testing the API locally. `npm run run:job --workspace=apps/api -- <job> [--force]` runs a background job (e.g. `quarterly_audit`) through the same `runJob` path as the scheduler, for local testing. Unit tests (`vitest`) live next to the code as `*.test.ts` and run with `npm test` (DB-free). Integration tests are colocated as `*.int.test.ts` and run with `npm run test:integration --workspace=apps/api` against a disposable database derived from `DATABASE_URL` (a `_test` suffix is appended, then created/migrated/reset per run).
 
 ## Conventions for this structure
 - **One table, one repository file.** `repositories/roster.repository.ts` only talks to `roster`. If a query needs a join, it still lives in the repository of the "owning" resource for that operation.

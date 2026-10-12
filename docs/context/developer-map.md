@@ -43,6 +43,13 @@ This is the routing document. Read this first when picking up any task on the Th
 3. `api-reference.md` — confirm every affected endpoint's auth check is updated, not just the new one.
 4. `ui-context.md` — role-aware design section, for any UI that now needs to reflect the new permission boundary.
 
+### Adding a background job or notification event
+1. `architecture.md` — the jobs runtime / notification outbox (`apps/api/src/jobs`, `notifications.service.ts`) and the outbound-only delivery pattern.
+2. `database-schema.md` — `job_runs` (atomic `(job, run_key)` claim) and `notifications` (`(recipient_user_id, dedupe_key)` unique).
+3. `security.md` — the locking/claim guarantees, terminal-failure logging rules, and the "recipients must press Start" deploy note.
+4. `workflows.md` (Workflow 10) + `api-reference.md` — the event's user journey and the internal claim/confirm contract.
+5. Do not make a job depend on `req`/user/role — call a shared, request-independent service (e.g. `roster-audit.service.ts`).
+
 ### Working on the bot specifically
 1. `architecture.md` — bot's role as a thin client over the API.
 2. `workflows.md` — the exact sequence the bot participates in (join requests, content posting, notifications).

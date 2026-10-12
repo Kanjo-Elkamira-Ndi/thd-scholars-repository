@@ -26,3 +26,14 @@ export type RegistrationDecision = Exclude<JoinRequestStatus, 'pending'>;
 export type MemberRemovalStatus = 'pending' | 'processing' | 'done' | 'failed' | 'cancelled';
 
 export type MemberRemovalInitiator = 'admin' | 'registrar';
+
+export type NotificationStatus = 'pending' | 'processing' | 'sent' | 'failed';
+
+export type JobRunStatus = 'started' | 'completed' | 'failed';
+
+export type NotificationEvent =
+  | 'role_changed'
+  | 'member_removal_requested'
+  | 'audit_flagged'
+  | 'access_review_reminder'
+  | 'repeated_registration_failure';

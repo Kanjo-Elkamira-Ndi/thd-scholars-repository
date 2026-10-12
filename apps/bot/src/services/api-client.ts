@@ -7,6 +7,8 @@ import type {
   CompleteJoinRequestInput,
   MemberRemovalTask,
   MembershipReconcileTarget,
+  NotificationConfirmInput,
+  NotificationTask,
   MembershipSnapshotEntry,
   RecordJoinRequestInput,
   UserStatusResponse,
@@ -55,6 +57,11 @@ export interface BotApiClient {
     id: string,
     input: { outcome: 'removed' | 'failed'; error?: string },
   ): Promise<void>;
+  claimNotifications(limit?: number): Promise<NotificationTask[]>;
+  completeNotification(
+    id: string,
+    input: NotificationConfirmInput,
+  ): Promise<{ status: string }>;
 }
 
 const parseFileName = (contentDisposition: string | null): string | null => {
@@ -196,6 +203,25 @@ export const createApiClient = ({
       input: { outcome: 'removed' | 'failed'; error?: string },
     ): Promise<void> {
       await request(`/internal/members/removals/${id}/confirm`, { method: 'POST', body: input });
+    },
+
+    async claimNotifications(limit?: number): Promise<NotificationTask[]> {
+      const body = await request('/internal/notifications/claim', {
+        method: 'POST',
+        body: limit === undefined ? {} : { limit },
+      });
+      return (body as { items: NotificationTask[] }).items;
+    },
+
+    async completeNotification(
+      id: string,
+      input: NotificationConfirmInput,
+    ): Promise<{ status: string }> {
+      const body = await request(`/internal/notifications/${id}/confirm`, {
+        method: 'POST',
+        body: input,
+      });
+      return body as { status: string };
     },
   };
 };

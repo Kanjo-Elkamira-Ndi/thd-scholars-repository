@@ -9,14 +9,14 @@ vi.mock('../repositories/users.repository', () => ({
   listUsers: vi.fn(),
 }));
 vi.mock('../repositories/audit-logs.repository', () => ({ insertAuditLog: vi.fn() }));
-vi.mock('./notifications.service', () => ({ notify: vi.fn() }));
+vi.mock('./notifications.service', () => ({ notifyRoleChanged: vi.fn() }));
 vi.mock('../db/transaction', () => ({
   withTransaction: (fn: (client: unknown) => unknown) => fn({}),
 }));
 
 import * as auditRepo from '../repositories/audit-logs.repository';
 import * as usersRepo from '../repositories/users.repository';
-import { notify } from './notifications.service';
+import { notifyRoleChanged } from './notifications.service';
 import { changeUserRole } from './admin-users.service';
 
 const makeUser = (over: Partial<User>): User => ({
@@ -74,7 +74,7 @@ describe('changeUserRole', () => {
       }),
       expect.anything(),
     );
-    expect(notify).toHaveBeenCalledWith('target', 'role_changed', { from: 'scholar', to: 'faculty' });
+    expect(notifyRoleChanged).toHaveBeenCalledWith('target', 'scholar', 'faculty', expect.anything());
   });
 
   it('allows demoting an admin when another admin remains', async () => {
