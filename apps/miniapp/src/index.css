@@ -1,0 +1,178 @@
+@import 'tailwindcss';
+
+/*
+ * Dark mode is class-driven (`.dark` on <html>), toggled from Telegram's
+ * colorScheme — not from the OS preference alone.
+ */
+@custom-variant dark (&:is(.dark *));
+
+/* ------------------------------------------------------------------ *
+ * Design tokens — light
+ * Institutional blue primary (not Tailwind's raw blue-500), a cool
+ * neutral scale, and semantic success/warning/destructive so role-critical
+ * states never read like normal navigation.
+ * ------------------------------------------------------------------ */
+:root {
+  --background: #f7f9fc;
+  --foreground: #0f172a;
+
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+
+  --primary: #1c4e80;
+  --primary-foreground: #ffffff;
+
+  --secondary: #e9eff6;
+  --secondary-foreground: #1c4e80;
+
+  --muted: #eef2f7;
+  --muted-foreground: #5a6b7e;
+
+  --accent: #e9eff6;
+  --accent-foreground: #163e66;
+
+  --destructive: #c0392b;
+  --destructive-foreground: #ffffff;
+
+  --success: #1e8e5a;
+  --success-foreground: #ffffff;
+
+  --warning: #b7791f;
+  --warning-foreground: #ffffff;
+
+  --border: #dce3ec;
+  --input: #dce3ec;
+  --ring: #1c4e80;
+
+  --radius: 0.75rem;
+
+  color-scheme: light;
+}
+
+/* ------------------------------------------------------------------ *
+ * Design tokens — dark
+ * ------------------------------------------------------------------ */
+.dark {
+  --background: #0b1220;
+  --foreground: #e6eaf2;
+
+  --card: #111a2b;
+  --card-foreground: #e6eaf2;
+  --popover: #111a2b;
+  --popover-foreground: #e6eaf2;
+
+  --primary: #4e86c4;
+  --primary-foreground: #08111f;
+
+  --secondary: #1a2436;
+  --secondary-foreground: #cbd5e1;
+
+  --muted: #1a2436;
+  --muted-foreground: #93a2b5;
+
+  --accent: #1e2a3e;
+  --accent-foreground: #e6eaf2;
+
+  --destructive: #e06c6c;
+  --destructive-foreground: #1a0f0f;
+
+  --success: #43c08d;
+  --success-foreground: #06231a;
+
+  --warning: #e0b25c;
+  --warning-foreground: #241a06;
+
+  --border: #22304a;
+  --input: #22304a;
+  --ring: #4e86c4;
+
+  color-scheme: dark;
+}
+
+@theme {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  --font-mono: ui-monospace, 'SFMono-Regular', 'JetBrains Mono', Menlo, Consolas, monospace;
+}
+
+/*
+ * Bind the semantic tokens to Tailwind utilities (bg-primary, text-muted-foreground,
+ * border-input, ring-ring, …). `inline` keeps utilities pointing at the live CSS var
+ * so a single `.dark` swap re-themes the whole app.
+ */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior-y: none;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

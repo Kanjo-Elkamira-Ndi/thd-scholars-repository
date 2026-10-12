@@ -1,5 +1,6 @@
 import js from '@eslint/js';
-import prettier from 'eslint-config-prettier';
+import reactHooks from 'eslint-plugin-react-hooks';
+import eslintConfigPrettier from 'eslint-config-prettier';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
@@ -17,5 +18,9 @@ export default tseslint.config(
       ],
     },
   },
-  prettier,
+  {
+    files: ['apps/miniapp/**/*.{ts,tsx}'],
+    ...reactHooks.configs.flat['recommended-latest'],
+  },
+  eslintConfigPrettier,
 );

@@ -71,6 +71,7 @@ npm run build --workspace=packages/shared
 # copy env templates and fill in real values
 cp apps/api/.env.example apps/api/.env
 cp apps/bot/.env.example apps/bot/.env
+cp apps/miniapp/.env.example apps/miniapp/.env
 
 # run database migrations
 npm run migrate --workspace=apps/api
@@ -124,8 +125,12 @@ npm run dev --workspace=apps/miniapp
 | `bot` | `BOT_TOKEN`                 | Telegram Bot API token                     |
 | `bot` | `API_BASE_URL`              | Where the bot reaches the API service      |
 | `bot` | `BOT_NOTIFICATION_BATCH_SIZE` | Max notifications delivered per poll (default `10`) |
+| `miniapp` | `VITE_API_BASE_URL`     | API base including `/api` (defaults to same-origin `/api`) |
+| `miniapp` | `VITE_MOCK_USER`        | Dev-only JSON identity (`{"id":1}`) used when not running inside Telegram |
 
 `BOT_TOKEN` is now required by the API as well — it is the HMAC key the API uses to verify Telegram `initData`. Drive routing needs `GOOGLE_SERVICE_ACCOUNT_JSON` **and** `GOOGLE_DRIVE_FOLDER_ID`: the service account must have access to a Shared Drive, and `CONTENT_STAGING_DIR` must be a persistent volume shared across API replicas.
+
+Running the Mini App locally outside Telegram: set `AUTH_MOCK_ENABLED=true` in `apps/api/.env`, `MINIAPP_ORIGIN=http://localhost:5173`, and put a matching identity in `apps/miniapp/.env` (`VITE_MOCK_USER={"id":1}`). The Mini App sends no `initData` in that case, so the API falls back to the mocked user.
 
 Full details in each app's `.env.example`.
 

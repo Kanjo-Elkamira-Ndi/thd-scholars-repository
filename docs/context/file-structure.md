@@ -51,26 +51,31 @@ thd-scholars-repository/
 │   └── miniapp/
 │       ├── src/
 │       │   ├── components/
-│       │   │   ├── ui/              # shadcn-generated primitives — do not hand-edit generated internals, extend via props/wrappers
-│       │   │   └── shared/          # app-specific reusable components (RoleBadge, StatusPill, EmptyState, etc.)
+│       │   │   ├── ui/              # shadcn primitives (button, card, badge, skeleton, separator)
+│       │   │   ├── shared/          # AppHeader, BottomNav, RoleBadge, StatusPill, EmptyState,
+│       │   │   │                    # ErrorState, LoadingSkeletons, AccessDenied,
+│       │   │   │                    # UnauthorizedScreen, PageTransition
+│       │   │   └── layout/          # AppShell (chrome), RequireRole (role gate)
 │       │   ├── features/
-│       │   │   ├── registration/    # form, validation, submit flow
-│       │   │   ├── roster/          # registrar views
-│       │   │   ├── content/         # browse/search + faculty post composer
-│       │   │   ├── admin/           # role management, audit log viewer, settings
-│       │   │   └── dashboard/       # role-aware landing view
-│       │   ├── hooks/               # useTelegramInitData, useRole, useApi, etc.
-│       │   ├── lib/                 # api client, telegram SDK wrapper, utils
-│       │   ├── routes/              # route definitions (if using a router) or pages/
-│       │   ├── styles/              # tailwind config entry, design tokens
+│       │   │   ├── home/            # HomeScreen, ProfileCard, StatusCard, RoleActions
+│       │   │   └── placeholder/     # PlaceholderScreen for not-yet-wired routes
+│       │   ├── hooks/               # use-me, use-role, use-telegram
+│       │   ├── lib/                 # api client, errors, query-client, telegram wrapper, utils
+│       │   ├── motion/              # framer-motion transitions
+│       │   ├── router/              # routes.tsx (nav + access source of truth), index.tsx
+│       │   ├── test/                # vitest setup + render helper
 │       │   ├── App.tsx
-│       │   └── main.tsx
-│       ├── public/
+│       │   ├── main.tsx
+│       │   ├── index.css            # Tailwind v4 entry + design tokens
+│       │   └── vite-env.d.ts
 │       ├── index.html
-│       ├── tailwind.config.ts
 │       ├── components.json          # shadcn CLI config
+│       ├── vite.config.ts           # Vite + @tailwindcss/vite + Vitest
+│       ├── .env.example
 │       ├── tsconfig.json
 │       └── package.json
+│
+│   (Tailwind v4 is configured CSS-first in `src/index.css`; there is no `tailwind.config.ts`.)
 │
 ├── packages/
 │   └── shared/
