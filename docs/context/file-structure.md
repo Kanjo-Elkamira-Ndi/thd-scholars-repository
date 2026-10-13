@@ -22,8 +22,7 @@ thd-scholars-repository/
 │   │   │   │   ├── migrations/      # 0001_init_users_roster.sql ... 0011_jobs_notifications.sql (sequential, never edited after merge)
 │   │   │   │   ├── seeds/           # dev-only seed data (dev-users.ts fixtures, seed-users.ts runner)
 │   │   │   │   ├── testing/         # test-DB harness: test-database.ts (create/migrate/reset), global-setup.ts, fixtures.ts
-│   │   │   │   ├── migrate.ts       # migration runner (tracks applied files in schema_migrations)
-│   │   │   │   ├── transaction.ts   # Db type + withTransaction(fn) (pool-or-client, commit/rollback)
+│   │   │   │   ├── migrate.ts       # migration runner (tracks applied files in schema_migrations)│   │   │   │   ├── transaction.ts   # Db type + withTransaction(fn) (pool-or-client, commit/rollback)
 │   │   │   │   └── pool.ts          # pg Pool instance, single source
 │   │   │   ├── app.ts               # express app assembly (middleware + routes)
 │   │   │   └── server.ts            # entrypoint, listens on PORT
@@ -51,21 +50,28 @@ thd-scholars-repository/
 │   └── miniapp/
 │       ├── src/
 │       │   ├── components/
-│       │   │   ├── ui/              # shadcn primitives (button, card, badge, skeleton, separator,
-│       │   │   │                    # input, label, checkbox, form, alert)
-│       │   │   ├── shared/          # AppHeader, BottomNav, RoleBadge, StatusPill, EmptyState,
-│       │   │   │                    # ErrorState, LoadingSkeletons, AccessDenied,
-│       │   │   │                    # UnauthorizedScreen, PageTransition
+│       │   │   ├── ui/              # shadcn/Radix primitives (button, card, dialog, sheet, tabs,
+│       │   │   │                    # select, badge, skeleton, input, label, form, alert)
+│       │   │   ├── shared/          # AppHeader, BottomNav, PageTransition, StatusPill,
+│       │   │   │                    # ContentDeliveryPill, RosterAuditPill, SearchInput, FilterBar,
+│       │   │   │                    # FilterSelect, ConfirmDialog, LoadMore, ListState,
+│       │   │   │                    # EmptyState, ErrorState, LoadingSkeletons, AccessDenied
 │       │   │   └── layout/          # AppShell (chrome), RequireRole (role gate)
 │       │   ├── features/
-│       │   │   ├── home/            # HomeScreen, ProfileCard, StatusCard, RoleActions
-│       │   │   ├── registration/    # RegistrationScreen · RegistrationForm · RegistrationResult ·
-│       │   │   │                    # AlreadyRegisteredCard · SuccessMark · contact
+│       │   │   ├── home/            # HomeScreen, RoleActions
+│       │   │   ├── registration/    # RegistrationScreen
+│       │   │   ├── roster/          # RosterScreen (Tabs: Scholars / Access review / Audit) +
+│       │   │   │                    # components/RosterFilters, RosterCard, RosterDetailSheet,
+│       │   │   │                    # RosterStatusForm, AccessReviewList, AuditList
+│       │   │   ├── content/         # ContentScreen, ContentComposerScreen, labels, upload-validation +
+│       │   │   │                    # components/ContentFilters, ContentCard, ContentDetailSheet,
+│       │   │   │                    # ContentLinkActions, ContentForm, DriveOrFileField
 │       │   │   └── placeholder/     # PlaceholderScreen for not-yet-wired routes
-│       │   ├── hooks/               # use-me, use-role, use-telegram
-│       │   ├── lib/                 # api client, errors, query-client, telegram wrapper, utils
-│       │   ├── motion/              # framer-motion transitions
-│       │   ├── router/              # routes.tsx (nav + access source of truth), index.tsx
+│       │   ├── hooks/               # use-me, use-role, use-telegram, use-back-button,
+│       │   │                        # use-roster, use-content
+│       │   ├── lib/                 # api client, errors, channel-link, telegram-actions,
+│       │   │                        # query-client, utils
+│       │   ├── router/              # routes.tsx (nav + access source of truth, lazy routes), index.tsx
 │       │   ├── test/                # vitest setup + render helper
 │       │   ├── App.tsx
 │       │   ├── main.tsx

@@ -1,4 +1,18 @@
-import type { RegistrationPayload, RegistrationResult, UserStatusResponse } from '@thd/shared';
+import type {
+  ContentCreateInput,
+  ContentFormat,
+  ContentPost,
+  ContentUpdateInput,
+  DisciplineTag,
+  MemberRemoval,
+  RegistrationPayload,
+  RegistrationResult,
+  RosterAuditEntry,
+  RosterEntry,
+  RosterStatus,
+  RosterUpdateInput,
+  UserStatusResponse,
+} from '@thd/shared';
 import { ApiError } from './errors';
 import { getInitData, getMockUser } from './telegram';
 
@@ -93,6 +107,249 @@ export function postRegistration(
   signal?: AbortSignal,
 ): Promise<RegistrationResult> {
   return apiFetch<RegistrationResult>('/registrations', { method: 'POST', body: payload, signal });
+}
+
+type QueryValue = string | number | boolean | null | undefined;
+
+/** Serialise query params, dropping empty/`null`/`undefined` values. */
+export function buildQuery(params: Record<string, QueryValue>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === '') continue;
+    search.set(key, String(value));
+  }
+  const qs = search.toString();
+  return qs ? `?${qs}` : '';
+}
+
+export interface Paginated<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface ContentListQuery {
+  discipline?: DisciplineTag;
+  format?: ContentFormat;
+  cohortYear?: number;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface RosterListQuery {
+  status?: RosterStatus;
+  cohortYear?: number;
+  accessReviewPending?: boolean;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+/** Browse the content library. */
+export function listContent(
+  query: ContentListQuery = {},
+  signal?: AbortSignal,
+): Promise<Paginated<ContentPost>> {
+  return apiFetch<Paginated<ContentPost>>(`/content${buildQuery({ ...query })}`, { signal });
+}
+
+/** Fetch a single content post (404 if missing or soft-deleted). */
+export async function getContentPost(id: string, signal?: AbortSignal): Promise<ContentPost> {
+  const { contentPost } = await apiFetch<{ contentPost: ContentPost }>(`/content/${id}`, {
+    signal,
+  });
+  return contentPost;
+}
+
+/** Create a content post from a Drive link (no file bytes). */
+export async function createContent(
+  input: ContentCreateInput,
+  signal?: AbortSignal,
+): Promise<ContentPost> {
+  const { contentPost } = await apiFetch<{ contentPost: ContentPost }>('/content', {
+    method: 'POST',
+    body: input,
+    signal,
+  });
+  return contentPost;
+}
+
+/** Update the mutable metadata of a content post. */
+export async function updateContent(
+  id: string,
+  patch: ContentUpdateInput,
+  signal?: AbortSignal,
+): Promise<ContentPost> {
+  const { contentPost } = await apiFetch<{ contentPost: ContentPost }>(`/content/${id}`, {
+    method: 'PATCH',
+    body: patch,
+    signal,
+  });
+  return contentPost;
+}
+
+/** Delete a content post. The API hard-deletes fresh posts and soft-deletes others. */
+export function deleteContent(
+  id: string,
+  signal?: AbortSignal,
+): Promise<{ hardDeleted: boolean }> {
+  return apiFetch<{ hardDeleted: boolean }>(`/content/${id}`, { method: 'DELETE', signal });
+}
+
+export interface UploadContentFields {
+  title: string;
+  disciplineTag: DisciplineTag;
+  formatTag: ContentFormat;
+  cohortYear?: number;
+}
+
+export interface UploadOptions {
+  onProgress?: (percent: number) => void;
+  signal?: AbortSignal;
+}
+
+/**
+ * Upload a content file with real byte progress (XHR, not fetch).
+ * Aborting rejects with a `NETWORK_ERROR`; callers that cancelled should ignore it.
+ */
+export function uploadContent(
+  fields: UploadContentFields,
+  file: File,
+  { onProgress, signal }: UploadOptions = {},
+): Promise<ContentPost> {
+  return new Promise<ContentPost>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${API_BASE_URL}/content`);
+    for (const [key, value] of Object.entries(authHeaders())) {
+      xhr.setRequestHeader(key, value);
+    }
+
+    const form = new FormData();
+    form.append('title', fields.title);
+    form.append('disciplineTag', fields.disciplineTag);
+    form.append('formatTag', fields.formatTag);
+    if (fields.cohortYear !== undefined && fields.cohortYear !== null) {
+      form.append('cohortYear', String(fields.cohortYear));
+    }
+    form.append('file', file);
+
+    if (onProgress) {
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable && event.total > 0) {
+          onProgress(Math.round((event.loaded / event.total) * 100));
+        }
+      };
+    }
+
+    const parseEnvelope = (): ApiErrorEnvelope | null => {
+      try {
+        return JSON.parse(xhr.responseText) as ApiErrorEnvelope;
+      } catch {
+        return null;
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve((JSON.parse(xhr.responseText) as { contentPost: ContentPost }).contentPost);
+        } catch {
+          reject(new ApiError(xhr.status, 'REQUEST_FAILED', 'Unexpected server response.'));
+        }
+        return;
+      }
+      const envelope = parseEnvelope();
+      reject(
+        new ApiError(
+          xhr.status,
+          envelope?.error?.code ?? 'REQUEST_FAILED',
+          envelope?.error?.message ?? `Upload failed with status ${xhr.status}`,
+          envelope?.error?.details,
+        ),
+      );
+    };
+    xhr.onerror = () => {
+      reject(
+        new ApiError(
+          0,
+          'NETWORK_ERROR',
+          'Could not reach the server. Check your connection and try again.',
+        ),
+      );
+    };
+    xhr.onabort = () => {
+      reject(
+        new ApiError(
+          0,
+          'NETWORK_ERROR',
+          'Could not reach the server. Check your connection and try again.',
+        ),
+      );
+    };
+
+    if (signal) {
+      if (signal.aborted) {
+        xhr.abort();
+        return;
+      }
+      signal.addEventListener('abort', () => xhr.abort(), { once: true });
+    }
+
+    xhr.send(form);
+  });
+}
+
+/** Browse the roster with optional filters. */
+export function listRoster(
+  query: RosterListQuery = {},
+  signal?: AbortSignal,
+): Promise<Paginated<RosterEntry>> {
+  return apiFetch<Paginated<RosterEntry>>(`/roster${buildQuery({ ...query })}`, { signal });
+}
+
+/** Fetch a single roster entry (404 if missing). */
+export async function getRosterEntry(id: string, signal?: AbortSignal): Promise<RosterEntry> {
+  const { rosterEntry } = await apiFetch<{ rosterEntry: RosterEntry }>(`/roster/${id}`, {
+    signal,
+  });
+  return rosterEntry;
+}
+
+/** Update a roster entry's status/cohort/track/supervisor. */
+export async function updateRoster(
+  id: string,
+  patch: RosterUpdateInput,
+  signal?: AbortSignal,
+): Promise<RosterEntry> {
+  const { rosterEntry } = await apiFetch<{ rosterEntry: RosterEntry }>(`/roster/${id}`, {
+    method: 'PATCH',
+    body: patch,
+    signal,
+  });
+  return rosterEntry;
+}
+
+/** Roster/membership inconsistencies for the audit segment. */
+export async function getRosterAudit(
+  signal?: AbortSignal,
+): Promise<RosterAuditEntry[]> {
+  const { issues } = await apiFetch<{ issues: RosterAuditEntry[] }>('/roster/audit', { signal });
+  return issues;
+}
+
+/** Queue a member removal. The bot delivers it asynchronously. */
+export function removeMember(
+  userId: string,
+  reason?: string,
+  signal?: AbortSignal,
+): Promise<{ removal: MemberRemoval; created: boolean }> {
+  return apiFetch<{ removal: MemberRemoval; created: boolean }>(`/members/${userId}/remove`, {
+    method: 'POST',
+    body: reason ? { reason } : {},
+    signal,
+  });
 }
 
 export function isUnauthorized(error: unknown): boolean {

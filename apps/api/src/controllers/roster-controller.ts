@@ -33,3 +33,12 @@ export const patchRoster = async (req: Request, res: Response): Promise<void> =>
   });
   res.status(200).json({ rosterEntry });
 };
+
+export const getRosterById = async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params as { id: string };
+  if (!UUID_RE.test(id)) {
+    throw new AppError('VALIDATION_ERROR', 'Invalid roster entry id', 400);
+  }
+  const rosterEntry = await rosterService.getRosterById(id);
+  res.status(200).json({ rosterEntry });
+};

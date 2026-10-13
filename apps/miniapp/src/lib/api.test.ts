@@ -1,7 +1,22 @@
-import type { RegistrationPayload, UserStatusResponse } from '@thd/shared';
+import type { ContentPost, RegistrationPayload, UserStatusResponse } from '@thd/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from './errors';
-import { API_BASE_URL, apiFetch, authHeaders, getMe, postRegistration } from './api';
+import {
+  API_BASE_URL,
+  apiFetch,
+  authHeaders,
+  buildQuery,
+  deleteContent,
+  getContentPost,
+  getMe,
+  getRosterAudit,
+  listContent,
+  listRoster,
+  postRegistration,
+  removeMember,
+  updateRoster,
+  uploadContent,
+} from './api';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return {
@@ -140,5 +155,205 @@ describe('postRegistration', () => {
       expect.stringContaining('/registrations'),
       expect.objectContaining({ method: 'POST' }),
     );
+  });
+});
+
+describe('buildQuery', () => {
+  it('serialises values and drops empty ones', () => {
+    expect(buildQuery({ discipline: 'Missiology', page: 2 })).toBe('?discipline=Missiology&page=2');
+    expect(buildQuery({ page: undefined, search: '', status: null })).toBe('');
+    expect(buildQuery({ accessReviewPending: false })).toBe('?accessReviewPending=false');
+  });
+});
+
+describe('content resources', () => {
+  const post: ContentPost = {
+    id: 'c1',
+    title: 'Hermeneutics 101',
+    disciplineTag: 'Hermeneutics',
+    formatTag: 'audio_lecture',
+    cohortTag: 2025,
+    postedBy: 'u1',
+    telegramMessageId: null,
+    driveLink: null,
+    fileSizeBytes: null,
+    pendingAction: 'publish',
+    deliveryStatus: 'pending',
+    deliveryAttempts: 0,
+    deletedAt: null,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  };
+
+  it('listContent builds a query string with only set filters', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ items: [], total: 0, page: 2, pageSize: 10 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await listContent({ discipline: 'Missiology', page: 2, search: '' });
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${API_BASE_URL}/content?discipline=Missiology&page=2`,
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
+
+  it('getContentPost unwraps the envelope', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ contentPost: post })));
+    await expect(getContentPost('c1')).resolves.toEqual(post);
+  });
+
+  it('deleteContent returns the hardDeleted flag', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ hardDeleted: true })));
+    await expect(deleteContent('c1')).resolves.toEqual({ hardDeleted: true });
+  });
+});
+
+describe('roster resources', () => {
+  it('listRoster serialises the accessReviewPending filter', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ items: [], total: 0, page: 1, pageSize: 20 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await listRoster({ accessReviewPending: true, status: 'active' });
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${API_BASE_URL}/roster?accessReviewPending=true&status=active`,
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
+
+  it('updateRoster PATCHes and unwraps the entry', async () => {
+    const entry = { id: 'r1', status: 'graduated' } as unknown as Record<string, unknown>;
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ rosterEntry: entry })));
+    await expect(updateRoster('r1', { status: 'graduated' })).resolves.toEqual(entry);
+  });
+
+  it('getRosterAudit unwraps the issues array', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ issues: [{ issue: 'active_not_member' }] })));
+    await expect(getRosterAudit()).resolves.toEqual([{ issue: 'active_not_member' }]);
+  });
+
+  it('removeMember posts to the removal endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ removal: { id: 'x' }, created: true }, 202));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(removeMember('u9', 'spam')).resolves.toEqual({ removal: { id: 'x' }, created: true });
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${API_BASE_URL}/members/u9/remove`,
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+});
+
+interface FakeProgressEvent {
+  lengthComputable: boolean;
+  loaded: number;
+  total: number;
+}
+
+class FakeXhr {
+  static last: FakeXhr | null = null;
+  method = '';
+  url = '';
+  status = 201;
+  responseText = '';
+  headers: Record<string, string> = {};
+  sentBody: FormData | null = null;
+  onprogress: ((event: FakeProgressEvent) => void) | null = null;
+  onload: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  onabort: (() => void) | null = null;
+  upload: { onprogress: ((event: FakeProgressEvent) => void) | null } = { onprogress: null };
+
+  constructor() {
+    FakeXhr.last = this;
+  }
+  open(method: string, url: string): void {
+    this.method = method;
+    this.url = url;
+  }
+  setRequestHeader(key: string, value: string): void {
+    this.headers[key] = value;
+  }
+  send(body: FormData): void {
+    this.sentBody = body;
+  }
+  abort(): void {
+    this.onabort?.();
+  }
+}
+
+describe('uploadContent', () => {
+  const file = new File(['bytes'], 'lecture.mp3', { type: 'audio/mpeg' });
+
+  afterEach(() => {
+    FakeXhr.last = null;
+  });
+
+  it('POSTs multipart with auth and resolves the created post', async () => {
+    vi.stubEnv('VITE_MOCK_USER', JSON.stringify({ id: 42 }));
+    vi.stubGlobal('XMLHttpRequest', FakeXhr as unknown as typeof XMLHttpRequest);
+
+    const promise = uploadContent(
+      { title: 'Lesson 1', disciplineTag: 'Hermeneutics', formatTag: 'audio_lecture', cohortYear: 2025 },
+      file,
+    );
+
+    const xhr = FakeXhr.last as FakeXhr;
+    expect(xhr.method).toBe('POST');
+    expect(xhr.url).toBe(`${API_BASE_URL}/content`);
+    expect(xhr.headers).toEqual({ 'x-mock-user': '{"id":42}' });
+    expect(xhr.sentBody?.get('title')).toBe('Lesson 1');
+    expect(xhr.sentBody?.get('cohortYear')).toBe('2025');
+    expect(xhr.sentBody?.get('file')).toBe(file);
+
+    xhr.status = 201;
+    xhr.responseText = JSON.stringify({ contentPost: { id: 'c9' } });
+    xhr.onload?.();
+
+    await expect(promise).resolves.toEqual({ id: 'c9' });
+  });
+
+  it('reports byte progress', async () => {
+    vi.stubGlobal('XMLHttpRequest', FakeXhr as unknown as typeof XMLHttpRequest);
+    const onProgress = vi.fn();
+
+    uploadContent({ title: 'T', disciplineTag: 'Missiology', formatTag: 'research_pdf' }, file, {
+      onProgress,
+    });
+
+    const xhr = FakeXhr.last as FakeXhr;
+    xhr.upload.onprogress?.({ lengthComputable: true, loaded: 50, total: 200 });
+    expect(onProgress).toHaveBeenCalledWith(25);
+  });
+
+  it('maps an error envelope onto ApiError', async () => {
+    vi.stubGlobal('XMLHttpRequest', FakeXhr as unknown as typeof XMLHttpRequest);
+
+    const promise = uploadContent(
+      { title: 'T', disciplineTag: 'Missiology', formatTag: 'research_pdf' },
+      file,
+    );
+
+    const xhr = FakeXhr.last as FakeXhr;
+    xhr.status = 400;
+    xhr.responseText = JSON.stringify({ error: { code: 'VALIDATION_ERROR', message: 'Bad file' } });
+    xhr.onload?.();
+
+    await expect(promise).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 400,
+      code: 'VALIDATION_ERROR',
+      message: 'Bad file',
+    });
+  });
+
+  it('maps a network failure to a NETWORK_ERROR ApiError', async () => {
+    vi.stubGlobal('XMLHttpRequest', FakeXhr as unknown as typeof XMLHttpRequest);
+
+    const promise = uploadContent(
+      { title: 'T', disciplineTag: 'Missiology', formatTag: 'research_pdf' },
+      file,
+    );
+
+    (FakeXhr.last as FakeXhr).onerror?.();
+    await expect(promise).rejects.toMatchObject({ code: 'NETWORK_ERROR', status: 0 });
   });
 });

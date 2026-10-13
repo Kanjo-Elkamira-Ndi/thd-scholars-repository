@@ -39,6 +39,16 @@ The Mini App represents a doctoral theology program — it should feel **credibl
 - **Loading states**: skeleton loaders over spinners where a layout shape is predictable (tables, cards); reserve spinners for indeterminate, short operations.
 - **Confirmation flows** for destructive/high-stakes actions (removing a member, declining a registration, changing a role) — a deliberate confirm step, not a bare button that fires immediately.
 
+## Shared primitives (Mini App)
+Feature screens are assembled from small composites in `apps/miniapp/src/components/shared/` rather than bespoke markup per screen:
+- **Status pills** — `StatusPill` (roster status), `ContentDeliveryPill` (post delivery), `RosterAuditPill` (audit issue); all built on one `Pill`/`Badge` with the semantic palette.
+- **Filtering & search:** `SearchInput` (debounced), `FilterBar` (horizontal scroll row), and `FilterSelect` (native `<select>` — the OS picker is faster/steadier inside the Telegram WebView than a custom Radix listbox; Radix `select` is reserved for real dropdown menus).
+- **List states:** `ListState` (loading/error/empty/content in one place), `CardSkeleton`/`ScreenSkeleton`, `EmptyState`, `ErrorState`, `LoadMore` (explicit "load more", not infinite scroll).
+- **Confirmation:** `ConfirmDialog` — one deliberate confirm step for destructive actions, with `tone="destructive"` and a `loading` state.
+- **Access:** `AccessDenied` for role/ownership blocks (e.g. a non-owner opening `/content/:id/edit`).
+- **Detail surfaces:** shadcn `Sheet` (bottom side) for roster scholar + content post details; each wires `useBackButton` so Telegram Back closes the sheet instead of navigating away.
+- **Uploads:** the composer's `DriveOrFileField` (exactly one of file/Drive link) with inline MIME/size errors, a progress bar, and Cancel.
+
 ## Motion guidelines (Framer Motion)
 - Page/route transitions: subtle, fast (150–250ms), consistent easing across the app — defined once as a shared transition config, not re-invented per screen.
 - List entrances: stagger children subtly when a data list first renders, skip it on subsequent re-renders/refetches so the UI doesn't feel jittery on every update.

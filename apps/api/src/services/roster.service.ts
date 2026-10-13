@@ -1,5 +1,10 @@
 import type { PoolClient } from 'pg';
-import { createRosterCreateSchema, rosterUpdateSchema, type RosterUpdateInput } from '@thd/shared';
+import {
+  createRosterCreateSchema,
+  rosterUpdateSchema,
+  type RosterEntry,
+  type RosterUpdateInput,
+} from '@thd/shared';
 import { withTransaction } from '../db/transaction';
 import * as auditRepo from '../repositories/audit-logs.repository';
 import * as memberRemovalsRepo from '../repositories/member-removals.repository';
@@ -12,10 +17,17 @@ const FLAGGING_STATUSES = new Set(['graduated', 'withdrawn']);
 export const listRoster = (query: {
   status?: string;
   cohortYear?: number;
+  accessReviewPending?: boolean;
   search?: string;
   page: number;
   pageSize: number;
 }) => rosterRepo.listRoster(query);
+
+export const getRosterById = async (id: string): Promise<RosterEntry> => {
+  const entry = await rosterRepo.getRosterById(id);
+  if (!entry) throw new AppError('NOT_FOUND', 'Roster entry not found', 404);
+  return entry;
+};
 
 export const createRosterEntry = async (args: { actorUserId: string; input: unknown }) => {
   const pattern = await settingsRepo.getRegistrationIdPattern();

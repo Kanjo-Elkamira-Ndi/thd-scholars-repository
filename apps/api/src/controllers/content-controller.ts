@@ -43,6 +43,15 @@ export const getContent = async (req: Request, res: Response): Promise<void> => 
   res.status(200).json({ items, total, page: query.page, pageSize: query.pageSize });
 };
 
+export const getContentById = async (req: Request, res: Response): Promise<void> => {
+  const { id } = req.params as { id: string };
+  if (!UUID_RE.test(id)) {
+    throw new AppError('VALIDATION_ERROR', 'Invalid content post id', 400);
+  }
+  const contentPost = await contentService.getContentPost(id);
+  res.status(200).json({ contentPost });
+};
+
 export const postContent = async (req: Request, res: Response): Promise<void> => {
   if (!req.user) throw new AppError('UNAUTHORIZED', 'Authentication required', 401);
 

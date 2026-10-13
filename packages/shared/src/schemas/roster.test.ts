@@ -19,4 +19,19 @@ describe('rosterQuerySchema', () => {
   it('rejects an unknown status', () => {
     expect(rosterQuerySchema.safeParse({ status: 'bogus' }).success).toBe(false);
   });
+
+  it('coerces the accessReviewPending query flag to a boolean', () => {
+    expect(rosterQuerySchema.parse({ accessReviewPending: 'true' }).accessReviewPending).toBe(true);
+    expect(rosterQuerySchema.parse({ accessReviewPending: 'false' }).accessReviewPending).toBe(
+      false,
+    );
+  });
+
+  it('leaves accessReviewPending undefined when omitted', () => {
+    expect(rosterQuerySchema.parse({}).accessReviewPending).toBeUndefined();
+  });
+
+  it('rejects a non-boolean accessReviewPending value', () => {
+    expect(rosterQuerySchema.safeParse({ accessReviewPending: 'bogus' }).success).toBe(false);
+  });
 });

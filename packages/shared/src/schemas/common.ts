@@ -28,3 +28,9 @@ export const supervisorNameSchema = z
 
 export const hasAtLeastOneField = <T extends object>(value: T): boolean =>
   Object.values(value).some((fieldValue) => fieldValue !== undefined);
+
+export const booleanQuerySchema = z
+  .union([z.boolean(), z.enum(['true', 'false'])], {
+    message: 'Expected a boolean value',
+  })
+  .transform((value) => value === true || value === 'true');

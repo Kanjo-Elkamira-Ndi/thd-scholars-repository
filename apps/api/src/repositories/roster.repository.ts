@@ -178,6 +178,7 @@ export const updateRosterEntry = async (
 export interface ListRosterParams {
   status?: string;
   cohortYear?: number;
+  accessReviewPending?: boolean;
   search?: string;
   page: number;
   pageSize: number;
@@ -191,15 +192,21 @@ export const listRoster = async (
   const filters = `
     ($1::text IS NULL OR r.status = $1)
     AND ($2::int IS NULL OR r.cohort_year = $2)
-    AND ($3::text IS NULL OR r.registration_id ILIKE $3 OR u.full_name ILIKE $3)`;
-  const values = [params.status ?? null, params.cohortYear ?? null, like];
+    AND ($3::text IS NULL OR r.registration_id ILIKE $3 OR u.full_name ILIKE $3)
+    AND ($4::boolean IS NULL OR r.access_review_pending = $4)`;
+  const values = [
+    params.status ?? null,
+    params.cohortYear ?? null,
+    like,
+    params.accessReviewPending ?? null,
+  ];
 
   const { rows } = await db.query<RosterRow>(
     `SELECT ${ROSTER_COLUMNS_QUALIFIED}
      FROM roster r LEFT JOIN users u ON u.id = r.user_id
      WHERE ${filters}
      ORDER BY r.created_at DESC
-     LIMIT $4 OFFSET $5`,
+     LIMIT $5 OFFSET $6`,
     [...values, params.pageSize, (params.page - 1) * params.pageSize],
   );
 

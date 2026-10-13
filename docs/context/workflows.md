@@ -26,6 +26,8 @@ End-to-end user journeys, mapped to the roles in `project-overview.md` and the e
 3. API writes the change, logs old/new value to `audit_logs`.
 4. **If new status is `graduated` or `withdrawn`:** the record is flagged in the "pending access review" view (does not auto-remove from the channel — see Workflow 4).
 
+**Mini App UI map:** `Roster` screen → **Scholars** tab → search/filter (`GET /api/roster?search=&status=&cohortYear=`) → tap a `RosterCard` → `RosterDetailSheet` (`GET /api/roster/:id`) → `RosterStatusForm` → Save → **confirm dialog** → `PATCH /api/roster/:id`. Moving to `graduated`/`withdrawn` shows "This will flag the scholar for access review…" before committing; re-activating shows "This cancels any pending removal and keeps the scholar in the channel."
+
 ## 3. Quarterly Roster Audit — implemented (Phase 10), automated (Phase 11)
 **Actor:** Registrar or Admin, plus the scheduled `quarterly_audit` job
 **Trigger:** scheduled (quarterly) or manually initiated.
@@ -33,6 +35,8 @@ End-to-end user journeys, mapped to the roles in `project-overview.md` and the e
 1. User opens Mini App → Roster → Audit view, backed by `GET /api/roster/audit`; the scheduled job runs the **same** `computeRosterAudit` function (`roster-audit.service.ts`), so the two never disagree. That function takes no `req`/user/role input.
 2. The API cross-references `roster` entries against `channel_membership` (the bot-observed snapshot). The Telegram Bot API cannot enumerate chat members, so the bot's membership-sync loop periodically asks about known `telegram_id`s and pushes a snapshot (`PUT /internal/members/snapshot`); the audit reads that snapshot.
 3. Mismatches are listed, scoped to roster entries only (staff without a roster row are never flagged): `active_not_member`, `inactive_still_member`, and `membership_unknown` (no snapshot yet — surfaced so the view can prompt a manual re-verification rather than silently passing).
+
+**Mini App UI map:** `Roster` screen → **Audit** tab → `AuditList` (`GET /api/roster/audit`, response `200 { issues: RosterAuditEntry[] }`) renders a `RosterAuditPill` per issue and an empty state ("No mismatches right now") when clean. The **Access review** tab lists `accessReviewPending=true` entries via `GET /api/roster?accessReviewPending=true`.
 4. **Scheduled run:** on the `AUDIT_JOB_CRON` schedule (default quarterly), the API claims this quarter's `quarterly_audit` run in `job_runs` (atomically, once per `run_key`, retaken only if the prior run failed or its lease went stale), writes a `quarterly_roster_audit` audit row, and enqueues one `audit_flagged` notification per Admin with the flagged count. Startup catch-up runs the current quarter's audit once if it has not completed.
 5. For each flagged entry, Admin (or Registrar within their permitted boundary — see `security.md`) confirms removal via `POST /api/members/:userId/remove`.
 6. Each removal enqueues a `member_removals` task (the bot performs the actual kick on its next tick), writes an `audit_logs` entry, and revokes any still-active `invite_links` for that user.
@@ -54,6 +58,8 @@ End-to-end user journeys, mapped to the roles in `project-overview.md` and the e
 
 1. Faculty opens Mini App → Content → New Post.
 2. Faculty fills in Title, Discipline tag, Format tag, Cohort (optional), and either uploads a file or pastes a Drive link.
+
+**Mini App UI map:** `Content` → "New post" (`/content/new`, Faculty/Admin only) → `ContentForm` collects title/discipline/format/cohort and `DriveOrFileField` picks exactly one source (inline MIME + size errors before upload). File → `POST /api/content` (multipart via XHR with a progress bar + Cancel while uploading; Telegram closing-confirmation is on); link → `POST /api/content` (JSON). Success → back to `Content`; a network failure shows "Upload interrupted — check the Content list before retrying."
 3. **Size routing:** the API verifies the declared and magic-byte MIME against the format whitelist. A file at or below `maxUploadSizeBytes` (the Drive threshold) is staged on disk for a Telegram upload; a file above it is uploaded resumably to a Shared Drive and only the share link (`https://drive.google.com/…`) is stored. Anything above `maxContentUploadBytes` is rejected (`400`).
 4. API creates the `content_posts` row with `pending_action = 'publish'` (`POST /api/content`) and writes a `content_created` audit row in the same transaction.
 5. The Bot Service outbox loop leases the task (`POST /internal/content/claim`), renders the channel template, and posts it — `sendMessage` for a Drive link, or `sendAudio`/`sendVideo`/`sendDocument` for a staged file it fetches from `GET /internal/content/:id/download`.
@@ -68,6 +74,8 @@ End-to-end user journeys, mapped to the roles in `project-overview.md` and the e
 2. API enforces ownership (Faculty limited to `posted_by = self`) before allowing the mutation — see `security.md`.
 3. Edit: `PATCH /api/content/:id` updates metadata (does not re-post to the channel) and writes a `content_updated` audit row.
 4. Remove: a post that was never claimed by the bot is hard-deleted and its staged file unlinked immediately; an already-published post is soft-deleted and `pending_action = 'delete'` so the bot deletes the channel message on its next tick. If a publish confirms after a delete was queued, the message id is stored but the delete is **never** cancelled (the message is still removed). A delete of an already-gone message counts as success. Every delete writes a `content_deleted` audit row.
+
+**Mini App UI map:** tap a `ContentCard` → `ContentDetailSheet` (`GET /api/content/:id`) with "Open in channel" (`openTelegramLink`, hidden until `telegramMessageId` exists) and "Open Drive link" (`openLink`). Edit/Delete are shown only to the owner or an Admin — a non-owner reaching `/content/:id/edit` directly gets `AccessDenied`, and the server still enforces ownership (Authorisation is UI-honest, not UI-enforced). Delete → `ConfirmDialog` ("Delete post") → `DELETE /api/content/:id`.
 
 ## 7. Admin Assigns/Changes a Role — implemented (Phase 10)
 **Actor:** Admin

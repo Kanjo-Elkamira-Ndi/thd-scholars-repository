@@ -244,3 +244,41 @@ describe('DELETE /api/content/:id', () => {
     expect(res.status).toBe(403);
   });
 });
+
+describe('GET /api/content/:id', () => {
+  it('returns a contentPost envelope for a valid id', async () => {
+    const created = await request(app).post('/api/content').set(auth(facultyTg)).send(jsonPost());
+    const id = created.body.contentPost.id as string;
+
+    const res = await request(app).get(`/api/content/${id}`).set(auth(facultyTg));
+    expect(res.status).toBe(200);
+    expect(res.body.contentPost).toMatchObject({ id, title: 'The Doctrine of Grace' });
+  });
+
+  it('rejects a malformed id and 404s an unknown id', async () => {
+    const bad = await request(app).get('/api/content/not-a-uuid').set(auth(facultyTg));
+    expect(bad.status).toBe(400);
+    expect(bad.body.error.code).toBe('VALIDATION_ERROR');
+
+    const missing = await request(app)
+      .get('/api/content/00000000-0000-0000-0000-000000000000')
+      .set(auth(facultyTg));
+    expect(missing.status).toBe(404);
+  });
+
+  it('404s a soft-deleted post', async () => {
+    const created = await request(app).post('/api/content').set(auth(facultyTg)).send(jsonPost());
+    const id = created.body.contentPost.id as string;
+    await pool.query('UPDATE content_posts SET deleted_at = now() WHERE id = $1', [id]);
+
+    const res = await request(app).get(`/api/content/${id}`).set(auth(facultyTg));
+    expect(res.status).toBe(404);
+  });
+
+  it('requires an active membership for scholars', async () => {
+    const res = await request(app)
+      .get('/api/content/00000000-0000-0000-0000-000000000000')
+      .set(auth(scholarTg));
+    expect(res.status).toBe(403);
+  });
+});

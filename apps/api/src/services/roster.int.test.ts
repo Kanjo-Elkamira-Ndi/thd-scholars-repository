@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import pool from '../db/pool';
 import { createUser, insertRosterRow } from '../db/testing/fixtures';
 import { resetTestDatabase } from '../db/testing/test-database';
-import { createRosterEntry, listRoster, updateRosterEntry } from './roster.service';
+import { createRosterEntry, getRosterById, listRoster, updateRosterEntry } from './roster.service';
 
 beforeEach(resetTestDatabase);
 
@@ -108,5 +108,27 @@ describe('roster service (integration)', () => {
       [id],
     );
     expect(clearedRow.rows[0].access_review_flagged_at).toBeNull();
+  });
+
+  it('filters by accessReviewPending and returns a single entry by id', async () => {
+    const registrar = await createUser(2111111115, 'registrar');
+    await insertRosterRow({ registrationId: 'DIBI-THD-0401', status: 'active' });
+    const flaggedId = await insertRosterRow({ registrationId: 'DIBI-THD-0402', status: 'active' });
+    await updateRosterEntry({
+      actorUserId: registrar.id,
+      id: flaggedId,
+      patch: { status: 'graduated' },
+    });
+
+    const flagged = await listRoster({ accessReviewPending: true, page: 1, pageSize: 20 });
+    expect(flagged.items.map((i) => i.registrationId)).toEqual(['DIBI-THD-0402']);
+
+    const clear = await listRoster({ accessReviewPending: false, page: 1, pageSize: 20 });
+    expect(clear.items.map((i) => i.registrationId)).toEqual(['DIBI-THD-0401']);
+
+    await expect(getRosterById(flaggedId)).resolves.toMatchObject({ id: flaggedId });
+    await expect(
+      getRosterById('22222222-2222-2222-2222-222222222222'),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND', status: 404 });
   });
 });

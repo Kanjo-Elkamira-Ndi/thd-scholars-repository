@@ -5,15 +5,17 @@ const mocks = vi.hoisted(() => ({
   listRoster: vi.fn(),
   createRosterEntry: vi.fn(),
   updateRosterEntry: vi.fn(),
+  getRosterById: vi.fn(),
 }));
 
 vi.mock('../services/roster.service', () => ({
   listRoster: mocks.listRoster,
   createRosterEntry: mocks.createRosterEntry,
   updateRosterEntry: mocks.updateRosterEntry,
+  getRosterById: mocks.getRosterById,
 }));
 
-import { patchRoster } from './roster-controller';
+import { getRosterById, patchRoster } from './roster-controller';
 
 const makeRes = () => {
   const res = {
@@ -50,5 +52,27 @@ describe('patchRoster', () => {
       patch: { status: 'active' },
     });
     expect(res.status).toHaveBeenCalledWith(200);
+  });
+});
+
+describe('getRosterById', () => {
+  it('rejects a non-UUID id with VALIDATION_ERROR without calling the service', async () => {
+    await expect(getRosterById(makeReq({ id: 'not-a-uuid' }), makeRes())).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      status: 400,
+    });
+    expect(mocks.getRosterById).not.toHaveBeenCalled();
+  });
+
+  it('returns a rosterEntry envelope for a valid id', async () => {
+    const entry = { id: '11111111-1111-1111-1111-111111111111', status: 'active' };
+    mocks.getRosterById.mockResolvedValue(entry);
+    const res = makeRes();
+
+    await getRosterById(makeReq({ id: entry.id }), res);
+
+    expect(mocks.getRosterById).toHaveBeenCalledWith(entry.id);
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ rosterEntry: entry });
   });
 });

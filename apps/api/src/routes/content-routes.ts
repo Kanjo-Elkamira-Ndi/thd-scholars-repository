@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   deleteContent,
   getContent,
+  getContentById,
   patchContent,
   postContent,
 } from '../controllers/content-controller';
@@ -13,6 +14,7 @@ import { uploadSingle } from '../middleware/upload';
 const router = Router();
 
 router.get('/content', requireVerifiedMember, asyncHandler(getContent));
+router.get('/content/:id', requireVerifiedMember, asyncHandler(getContentById));
 router.post('/content', requireRole('faculty', 'admin'), uploadSingle, asyncHandler(postContent));
 router.patch('/content/:id', requireRole('faculty', 'admin'), asyncHandler(patchContent));
 router.delete('/content/:id', requireRole('faculty', 'admin'), asyncHandler(deleteContent));

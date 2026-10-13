@@ -1,39 +1,39 @@
 import type { Role } from '@thd/shared';
 import { ROLES } from '@thd/shared';
 import type { LucideIcon } from 'lucide-react';
-import {
-  BookOpen,
-  ClipboardList,
-  Home,
-  Inbox,
-  Settings,
-  ShieldCheck,
-  UserCog,
-  Users,
-} from 'lucide-react';
-import type { ReactNode } from 'react';
+import { BookOpen, ClipboardList, Inbox, Home, Settings, ShieldCheck, UserCog, Users } from 'lucide-react';
+import { lazy, Suspense, type ComponentType, type ReactElement, type ReactNode } from 'react';
+import { ScreenSkeleton } from '@/components/shared/LoadingSkeletons';
 import { HomeScreen } from '@/features/home/HomeScreen';
 import { PlaceholderScreen } from '@/features/placeholder/PlaceholderScreen';
 import { RegistrationScreen } from '@/features/registration/RegistrationScreen';
 
+const RosterScreen = lazy(() => import('@/features/roster/RosterScreen'));
+const ContentScreen = lazy(() => import('@/features/content/ContentScreen'));
+const ContentComposerScreen = lazy(() => import('@/features/content/ContentComposerScreen'));
+
+/** Wrap a lazily-loaded screen in a suspense boundary. */
+function lazyElement(Component: ComponentType): ReactElement {
+  return (
+    <Suspense fallback={<ScreenSkeleton />}>
+      <Component />
+    </Suspense>
+  );
+}
+
 export interface AppRoute {
   path: string;
-  /** Full page title (used by the header). */
   label: string;
-  /** Compact label for the bottom tab bar. */
   navLabel?: string;
   icon?: LucideIcon;
   element: ReactNode;
-  /** Roles allowed to view this route. Omit for "everyone". */
   roles?: Role[];
-  /** Whether this route appears in the bottom tab bar. */
   showInNav: boolean;
 }
 
 /**
- * Single source of truth for navigation *and* access control.
  * The header, the tab bar and the router all derive from this list, so adding a
- * screen is a one-line change here.
+ * screen is a one-line change here. Access rules live next to the route.
  */
 export const routes: AppRoute[] = [
   {
@@ -44,15 +44,11 @@ export const routes: AppRoute[] = [
     showInNav: true,
   },
   {
-    path: '/library',
-    label: 'Library',
+    path: '/content',
+    label: 'Content',
+    navLabel: 'Content',
     icon: BookOpen,
-    element: (
-      <PlaceholderScreen
-        title="Library"
-        description="Browse and search sermon audio, seminars and research papers posted to the repository."
-      />
-    ),
+    element: lazyElement(ContentScreen),
     showInNav: true,
   },
   {
@@ -61,12 +57,7 @@ export const routes: AppRoute[] = [
     navLabel: 'Roster',
     icon: ClipboardList,
     roles: ['registrar', 'admin'],
-    element: (
-      <PlaceholderScreen
-        title="Roster"
-        description="Review scholar records, cohort progress and access-review flags."
-      />
-    ),
+    element: lazyElement(RosterScreen),
     showInNav: true,
   },
   {
@@ -98,6 +89,22 @@ export const routes: AppRoute[] = [
     icon: UserCog,
     roles: [...ROLES],
     element: <RegistrationScreen />,
+    showInNav: false,
+  },
+  {
+    path: '/content/new',
+    label: 'New content',
+    icon: BookOpen,
+    roles: ['faculty', 'admin'],
+    element: lazyElement(ContentComposerScreen),
+    showInNav: false,
+  },
+  {
+    path: '/content/:id/edit',
+    label: 'Edit content',
+    icon: BookOpen,
+    roles: ['faculty', 'admin'],
+    element: lazyElement(ContentComposerScreen),
     showInNav: false,
   },
   {

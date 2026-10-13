@@ -38,7 +38,7 @@ Fetch a single join request (status lookup).
 ### `GET /api/roster`
 List/search/filter the roster.
 - **Auth:** Registrar, Admin (others → `403`).
-- **Query params:** `status` (`active|graduated|withdrawn|pending`), `cohortYear`, `search` (matches `registrationId` or the linked user's `full_name`, case-insensitive), `page` (default 1), `pageSize` (default 20, max 100).
+- **Query params:** `status` (`active|graduated|withdrawn|pending`), `cohortYear`, `accessReviewPending` (`true|false`; the Mini App's Access-review tab uses `true`), `search` (matches `registrationId` or the linked user's `full_name`, case-insensitive), `page` (default 1), `pageSize` (default 20, max 100).
 - **Response:** `{ items: RosterEntry[], total: number, page: number, pageSize: number }`.
 
 ### `POST /api/roster`
@@ -58,10 +58,16 @@ Update a roster entry, most commonly `status`. `:id` must be a UUID (else `400 V
 - **Side effects:** writes an `audit_logs` row. Moving to `graduated`/`withdrawn` sets `rosterEntry.accessReviewPending: true` (and stamps `accessReviewFlaggedAt`); moving back to `active` clears it to `false`.
 - **Side effects:** writes `audit_logs` row with old/new status. If status moves to `graduated`/`withdrawn`, flags for Admin access-review rather than auto-removing (see `workflows.md`).
 
+### `GET /api/roster/:id`
+Fetch a single roster entry (used by the Mini App's scholar detail sheet). `:id` must be a UUID.
+- **Auth:** Registrar, Admin.
+- **Response:** `200 { rosterEntry: RosterEntry }`.
+- **Errors:** `404 NOT_FOUND` (unknown id), `400 VALIDATION_ERROR` (non-UUID id).
+
 ### `GET /api/roster/audit`
 Returns the quarterly-audit view: roster entries whose status no longer matches actual channel membership.
 - **Auth:** Registrar, Admin.
-- **Response:** `200 { items: RosterAuditItem[], total }` — each item carries the roster entry plus the flagging reason(s) (see `FLAGGING_STATUSES` in `roster-audit.service.ts`).
+- **Response:** `200 { issues: RosterAuditEntry[] }` — each `RosterAuditEntry` carries `{ roster: { id, userId, registrationId, status, cohortYear }, membership: ChannelMembership | null, issue: 'active_not_member' | 'inactive_still_member' | 'membership_unknown' }` (enum source: `RosterAuditIssue`).
 - **Behaviour:** computed by the same shared `computeRosterAudit()` used by the quarterly audit job, so the API view and the scheduled notification can never disagree. The function is pure with respect to request context (no user/role/`req` dependency).
 
 ## Content (Faculty + Admin)
@@ -71,6 +77,12 @@ Searchable/filterable content index of published/non-deleted posts.
 - **Auth:** verified member — Faculty, Registrar, Admin, and Scholars with an `active` roster entry. A Scholar without an active entry gets `403 NOT_VERIFIED`.
 - **Query params:** `discipline`, `format`, `cohortYear`, `search`, `page` (default `1`), `pageSize` (default `20`, max `100`); unknown/`enum`-mismatched values → `400 VALIDATION_ERROR`.
 - **Response:** `200 { items: ContentPost[], total, page, pageSize }`. `search` is matched with an escaped `ILIKE` (`%`/`_`/`\` treated literally).
+
+### `GET /api/content/:id`
+Fetch a single content post (used by the Mini App's post detail sheet). `:id` must be a UUID.
+- **Auth:** verified member (same rule as the index).
+- **Response:** `200 { contentPost: ContentPost }`.
+- **Errors:** `404 NOT_FOUND` (unknown or soft-deleted id), `400 VALIDATION_ERROR` (non-UUID id).
 
 ### `POST /api/content`
 Create a content post. The API inserts the row and the Bot Service publishes it (see the delivery loop below).

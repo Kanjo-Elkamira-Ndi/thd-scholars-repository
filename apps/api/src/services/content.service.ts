@@ -168,6 +168,14 @@ export function listContent(filters: contentRepo.ContentListFilters) {
   return contentRepo.listContentPosts(filters);
 }
 
+export async function getContentPost(id: string): Promise<ContentPost> {
+  const post = await contentRepo.getContentPostById(id);
+  if (!post || post.deletedAt !== null) {
+    throw new AppError('NOT_FOUND', 'Content post not found', 404);
+  }
+  return post;
+}
+
 export async function updateContent(input: {
   actorUserId: string;
   actorRole: Role;

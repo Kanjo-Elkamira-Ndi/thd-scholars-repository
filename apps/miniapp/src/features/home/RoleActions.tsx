@@ -5,10 +5,10 @@ import { Card } from '@/components/ui/card';
 import { routeByPath } from '@/router/routes';
 
 const ROLE_ACTIONS: Record<Role, string[]> = {
-  scholar: ['/library', '/registration'],
-  faculty: ['/library', '/registration'],
-  registrar: ['/requests', '/roster', '/library'],
-  admin: ['/members', '/roster', '/audit', '/settings', '/library'],
+  scholar: ['/content', '/registration'],
+  faculty: ['/content', '/registration'],
+  registrar: ['/requests', '/roster', '/content'],
+  admin: ['/members', '/roster', '/audit', '/settings', '/content'],
 };
 
 export function RoleActions({ role }: { role: Role }) {

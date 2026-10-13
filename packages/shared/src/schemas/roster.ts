@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { RosterStatus } from '../types/enums';
 import { DEFAULT_REGISTRATION_ID_REGEX } from '../constants/patterns';
 import {
+  booleanQuerySchema,
   cohortYearSchema,
   createRegistrationIdSchema,
   hasAtLeastOneField,
@@ -38,6 +39,7 @@ export const rosterUpdateSchema = z
 export const rosterQuerySchema = z.object({
   status: z.enum(ROSTER_STATUS_VALUES).optional(),
   cohortYear: z.coerce.number().int().min(1900).max(2100).optional(),
+  accessReviewPending: booleanQuerySchema.optional(),
   search: z.string().trim().min(1).max(200).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
