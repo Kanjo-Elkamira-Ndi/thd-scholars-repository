@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && tsx scripts/copy-migrations.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "dev": "tsx watch src/server.ts",
-    "migrate": "tsc -p tsconfig.json && node dist/db/migrate.js",
+    "migrate": "npm run build && node dist/db/migrate.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run -c vitest.integration.config.ts",

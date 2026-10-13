@@ -1,19 +1,7 @@
-import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { resolveMigrationsDir } from './migrations-dir';
 import pool from './pool';
-
-const resolveMigrationsDir = (): string => {
-  const candidates = [
-    path.join(__dirname, 'migrations'),
-    path.join(__dirname, '..', '..', 'src', 'db', 'migrations'),
-  ];
-  const dir = candidates.find((candidate) => existsSync(candidate));
-  if (!dir) {
-    throw new Error(`Migrations directory not found. Looked in: ${candidates.join(', ')}`);
-  }
-  return dir;
-};
 
 const main = async (): Promise<void> => {
   const dir = resolveMigrationsDir();
