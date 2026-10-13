@@ -8,6 +8,18 @@ export const springSoft: Transition = {
   mass: 0.9,
 };
 
+/** The one celebratory moment in the app: an approved registration. */
+export const successPop: Variants = {
+  hidden: { opacity: 0, scale: 0.6 },
+  visible: { opacity: 1, scale: 1, transition: springSoft },
+};
+
+/** Calm entrance for decision panels (approved and declined). */
+export const resultVariants: Variants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: { opacity: 1, y: 0, transition: springSoft },
+};
+
 export const fadeIn: Variants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { duration: 0.18, ease: 'easeOut' } },

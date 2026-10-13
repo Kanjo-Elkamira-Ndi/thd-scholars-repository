@@ -127,6 +127,7 @@ npm run dev --workspace=apps/miniapp
 | `bot` | `BOT_NOTIFICATION_BATCH_SIZE` | Max notifications delivered per poll (default `10`) |
 | `miniapp` | `VITE_API_BASE_URL`     | API base including `/api` (defaults to same-origin `/api`) |
 | `miniapp` | `VITE_MOCK_USER`        | Dev-only JSON identity (`{"id":1}`) used when not running inside Telegram |
+| `miniapp` | `VITE_REGISTRAR_CONTACT` | Registrar contact (a `@handle`, `mailto:`, or `tel:`) shown when a registration is declined |
 
 `BOT_TOKEN` is now required by the API as well — it is the HMAC key the API uses to verify Telegram `initData`. Drive routing needs `GOOGLE_SERVICE_ACCOUNT_JSON` **and** `GOOGLE_DRIVE_FOLDER_ID`: the service account must have access to a Shared Drive, and `CONTENT_STAGING_DIR` must be a persistent volume shared across API replicas.
 

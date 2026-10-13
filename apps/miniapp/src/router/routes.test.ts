@@ -1,3 +1,4 @@
+import { ROLES } from '@thd/shared';
 import { describe, expect, it } from 'vitest';
 import { navItemsForRole, routeByPath, routes } from './routes';
 
@@ -51,5 +52,13 @@ describe('routeByPath', () => {
   it('declares a unique path for every route', () => {
     const paths = routes.map((route) => route.path);
     expect(new Set(paths).size).toBe(paths.length);
+  });
+});
+
+describe('registration route', () => {
+  it('is open to every role and hidden from the tab bar', () => {
+    const route = routeByPath('/registration');
+    expect(route?.showInNav).toBe(false);
+    expect(route?.roles).toEqual(expect.arrayContaining([...ROLES]));
   });
 });

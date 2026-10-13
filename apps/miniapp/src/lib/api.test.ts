@@ -1,7 +1,7 @@
-import type { UserStatusResponse } from '@thd/shared';
+import type { RegistrationPayload, UserStatusResponse } from '@thd/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from './errors';
-import { API_BASE_URL, authHeaders, getMe } from './api';
+import { API_BASE_URL, apiFetch, authHeaders, getMe, postRegistration } from './api';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return {
@@ -87,5 +87,58 @@ describe('getMe', () => {
     expect(error).toBeInstanceOf(ApiError);
     expect((error as ApiError).code).toBe('NETWORK_ERROR');
     expect((error as ApiError).status).toBe(0);
+  });
+});
+
+describe('apiFetch error details', () => {
+  it('attaches the error envelope details to ApiError', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        jsonResponse(
+          {
+            error: {
+              code: 'VALIDATION_ERROR',
+              message: 'Invalid payload',
+              details: { formErrors: [], fieldErrors: { registrationId: ['bad'] } },
+            },
+          },
+          400,
+        ),
+      ),
+    );
+
+    await expect(apiFetch('/registrations', { method: 'POST' })).rejects.toMatchObject({
+      status: 400,
+      details: { fieldErrors: { registrationId: ['bad'] } },
+    });
+  });
+});
+
+describe('postRegistration', () => {
+  it('posts to /registrations', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ decision: 'approved', reason: null }, 201));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const payload: RegistrationPayload = {
+      fullName: 'Dev Scholar',
+      registrationId: 'DIBI-THD-0042',
+      cohortYear: 2025,
+      email: 'dev@example.com',
+      telegramUsername: '@dev_scholar',
+      programTrack: 'Theology',
+      declarationAccepted: true,
+    };
+
+    await expect(postRegistration(payload)).resolves.toEqual({
+      decision: 'approved',
+      reason: null,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining('/registrations'),
+      expect.objectContaining({ method: 'POST' }),
+    );
   });
 });

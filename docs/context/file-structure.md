@@ -51,13 +51,16 @@ thd-scholars-repository/
 │   └── miniapp/
 │       ├── src/
 │       │   ├── components/
-│       │   │   ├── ui/              # shadcn primitives (button, card, badge, skeleton, separator)
+│       │   │   ├── ui/              # shadcn primitives (button, card, badge, skeleton, separator,
+│       │   │   │                    # input, label, checkbox, form, alert)
 │       │   │   ├── shared/          # AppHeader, BottomNav, RoleBadge, StatusPill, EmptyState,
 │       │   │   │                    # ErrorState, LoadingSkeletons, AccessDenied,
 │       │   │   │                    # UnauthorizedScreen, PageTransition
 │       │   │   └── layout/          # AppShell (chrome), RequireRole (role gate)
 │       │   ├── features/
 │       │   │   ├── home/            # HomeScreen, ProfileCard, StatusCard, RoleActions
+│       │   │   ├── registration/    # RegistrationScreen · RegistrationForm · RegistrationResult ·
+│       │   │   │                    # AlreadyRegisteredCard · SuccessMark · contact
 │       │   │   └── placeholder/     # PlaceholderScreen for not-yet-wired routes
 │       │   ├── hooks/               # use-me, use-role, use-telegram
 │       │   ├── lib/                 # api client, errors, query-client, telegram wrapper, utils
@@ -116,6 +119,7 @@ thd-scholars-repository/
 **API dev scripts:** `npm run seed --workspace=apps/api` applies the `src/db/seeds` fixtures (one user per role; refuses to run with `NODE_ENV=production`), and `npm run make:init-data --workspace=apps/api -- --role=<role>` prints a signed `Authorization: tma <initData>` header for testing the API locally. `npm run run:job --workspace=apps/api -- <job> [--force]` runs a background job (e.g. `quarterly_audit`) through the same `runJob` path as the scheduler, for local testing. Unit tests (`vitest`) live next to the code as `*.test.ts` and run with `npm test` (DB-free). Integration tests are colocated as `*.int.test.ts` and run with `npm run test:integration --workspace=apps/api` against a disposable database derived from `DATABASE_URL` (a `_test` suffix is appended, then created/migrated/reset per run).
 
 ## Conventions for this structure
+
 - **One table, one repository file.** `repositories/roster.repository.ts` only talks to `roster`. If a query needs a join, it still lives in the repository of the "owning" resource for that operation.
 - **Controllers stay thin.** A controller parses the request, calls a service, returns the response. No business logic in controllers.
 - **Services never import `express`.** Keeps business logic testable and reusable from the bot's internal calls if ever needed.

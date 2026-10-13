@@ -1,4 +1,5 @@
 import type { Role } from '@thd/shared';
+import { ROLES } from '@thd/shared';
 import type { LucideIcon } from 'lucide-react';
 import {
   BookOpen,
@@ -13,6 +14,7 @@ import {
 import type { ReactNode } from 'react';
 import { HomeScreen } from '@/features/home/HomeScreen';
 import { PlaceholderScreen } from '@/features/placeholder/PlaceholderScreen';
+import { RegistrationScreen } from '@/features/registration/RegistrationScreen';
 
 export interface AppRoute {
   path: string;
@@ -94,12 +96,8 @@ export const routes: AppRoute[] = [
     path: '/registration',
     label: 'Registration',
     icon: UserCog,
-    element: (
-      <PlaceholderScreen
-        title="Registration"
-        description="Your registration details and current roster standing."
-      />
-    ),
+    roles: [...ROLES],
+    element: <RegistrationScreen />,
     showInNav: false,
   },
   {

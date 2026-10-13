@@ -1,4 +1,4 @@
-import type { UserStatusResponse } from '@thd/shared';
+import type { RegistrationPayload, RegistrationResult, UserStatusResponse } from '@thd/shared';
 import { ApiError } from './errors';
 import { getInitData, getMockUser } from './telegram';
 
@@ -33,7 +33,7 @@ interface RequestOptions {
 }
 
 interface ApiErrorEnvelope {
-  error?: { code?: string; message?: string };
+  error?: { code?: string; message?: string; details?: unknown };
 }
 
 async function readErrorEnvelope(response: Response): Promise<ApiErrorEnvelope | null> {
@@ -74,6 +74,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
       response.status,
       envelope?.error?.code ?? 'REQUEST_FAILED',
       envelope?.error?.message ?? `Request failed with status ${response.status}`,
+      envelope?.error?.details,
     );
   }
 
@@ -84,6 +85,14 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
 /** Current user + roster status. The app's identity call. */
 export function getMe(signal?: AbortSignal): Promise<UserStatusResponse> {
   return apiFetch<UserStatusResponse>('/me', { signal });
+}
+
+/** Submit a registration. The API replies 201 with the decision and optional reason. */
+export function postRegistration(
+  payload: RegistrationPayload,
+  signal?: AbortSignal,
+): Promise<RegistrationResult> {
+  return apiFetch<RegistrationResult>('/registrations', { method: 'POST', body: payload, signal });
 }
 
 export function isUnauthorized(error: unknown): boolean {

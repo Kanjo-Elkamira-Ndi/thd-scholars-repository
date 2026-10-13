@@ -1,4 +1,6 @@
-export type Role = 'scholar' | 'faculty' | 'registrar' | 'admin';
+export const ROLES = ['scholar', 'faculty', 'registrar', 'admin'] as const;
+
+export type Role = (typeof ROLES)[number];
 
 export type RosterStatus = 'active' | 'graduated' | 'withdrawn' | 'pending';
 
