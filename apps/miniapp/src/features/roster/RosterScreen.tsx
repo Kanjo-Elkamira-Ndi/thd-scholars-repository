@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { ListState } from '@/components/shared/ListState';
 import { LoadMore } from '@/components/shared/LoadMore';
@@ -63,10 +64,28 @@ function ScholarsSegment() {
   );
 }
 
+const TAB_FROM_PARAM: Record<string, string> = {
+  scholars: 'scholars',
+  'access-review': 'review',
+  audit: 'audit',
+};
+
 export default function RosterScreen() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [tab, setTab] = useState(() => TAB_FROM_PARAM[searchParams.get('tab') ?? ''] ?? 'scholars');
+
+  const onTabChange = (value: string) => {
+    setTab(value);
+    const params = new URLSearchParams(searchParams);
+    if (value === 'review') params.set('tab', 'access-review');
+    else if (value === 'audit') params.set('tab', 'audit');
+    else params.delete('tab');
+    setSearchParams(params, { replace: true });
+  };
+
   return (
     <PageTransition>
-      <Tabs defaultValue="scholars">
+      <Tabs value={tab} onValueChange={onTabChange}>
         <TabsList>
           <TabsTrigger value="scholars">Scholars</TabsTrigger>
           <TabsTrigger value="review">Access review</TabsTrigger>

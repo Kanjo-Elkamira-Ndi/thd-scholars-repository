@@ -1,7 +1,9 @@
-import type {
-  ClaimJoinRequestsResponse,
-  CompleteJoinRequestInput,
-  JoinRequestDeliveryStatus,
+import {
+  AUDIT_ACTIONS,
+  AUDIT_TARGET_TYPES,
+  type ClaimJoinRequestsResponse,
+  type CompleteJoinRequestInput,
+  type JoinRequestDeliveryStatus,
 } from '@thd/shared';
 import { env } from '../config/env';
 import { withTransaction } from '../db/transaction';
@@ -71,8 +73,8 @@ export const completeJoinRequest = async (
     await auditRepo.insertAuditLog(
       {
         actorUserId: null,
-        action: 'join_request_delivery_failed',
-        targetType: 'join_requests',
+        action: AUDIT_ACTIONS.JOIN_REQUEST_DELIVERY_FAILED,
+        targetType: AUDIT_TARGET_TYPES.JOIN_REQUESTS,
         targetId: input.id,
         details: { attempts: row.deliveryAttempts, error: input.error ?? null },
       },

@@ -8,7 +8,7 @@ const ROLE_ACTIONS: Record<Role, string[]> = {
   scholar: ['/content', '/registration'],
   faculty: ['/content', '/registration'],
   registrar: ['/requests', '/roster', '/content'],
-  admin: ['/members', '/roster', '/audit', '/settings', '/content'],
+  admin: ['/admin', '/admin/users', '/admin/members', '/admin/audit', '/admin/settings'],
 };
 
 export function RoleActions({ role }: { role: Role }) {

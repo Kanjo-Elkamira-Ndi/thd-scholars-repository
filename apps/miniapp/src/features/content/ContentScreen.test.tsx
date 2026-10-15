@@ -1,8 +1,10 @@
 import type { ContentPost, UserStatusResponse } from '@thd/shared';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { getContentPost, getMe, listContent } from '@/lib/api';
-import { renderWithProviders } from '@/test/render';
-import { screen } from '@testing-library/react';
+import { createTestQueryClient, renderWithProviders } from '@/test/render';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ContentScreen from './ContentScreen';
 
@@ -72,7 +74,7 @@ describe('ContentScreen', () => {
     renderWithProviders(<ContentScreen />);
 
     expect(await screen.findByText('Hermeneutics 101')).toBeInTheDocument();
-    expect(await screen.findByText('Posted')).toBeInTheDocument();
+    expect(await screen.findByText('Posted', { selector: 'span' })).toBeInTheDocument();
   });
 
   it('hides delivery state from a non-owner faculty member', async () => {
@@ -81,7 +83,7 @@ describe('ContentScreen', () => {
     renderWithProviders(<ContentScreen />);
 
     expect(await screen.findByText('Hermeneutics 101')).toBeInTheDocument();
-    expect(screen.queryByText('Posted')).not.toBeInTheDocument();
+    expect(screen.queryByText('Posted', { selector: 'span' })).not.toBeInTheDocument();
   });
 
   it('opens the detail sheet from a card', async () => {
@@ -92,6 +94,75 @@ describe('ContentScreen', () => {
     renderWithProviders(<ContentScreen />);
 
     await user.click((await screen.findByText('Hermeneutics 101')).closest('button') as HTMLElement);
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(getContentPost).toHaveBeenCalledWith('c1', expect.anything());
+  });
+});
+
+function renderAt(entry: string) {
+  const client = createTestQueryClient();
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={[entry]}>
+        <Routes>
+          <Route path="/content" element={<ContentScreen />} />
+          <Route path="/content/:id" element={<ContentScreen />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+describe('ContentScreen deep links', () => {
+  it('seeds mine and deliveryStatus from the URL', async () => {
+    vi.mocked(getMe).mockResolvedValue(me('faculty', 'owner-1'));
+
+    renderAt('/content?mine=true&deliveryStatus=failed');
+
+    await screen.findByText('Hermeneutics 101');
+    expect(listContent).toHaveBeenCalledWith(
+      expect.objectContaining({ mine: true, deliveryStatus: 'failed' }),
+      expect.anything(),
+    );
+  });
+
+  it('seeds discipline from the URL', async () => {
+    renderAt('/content?discipline=Hermeneutics');
+
+    await screen.findByText('Hermeneutics 101');
+    expect(listContent).toHaveBeenCalledWith(
+      expect.objectContaining({ discipline: 'Hermeneutics' }),
+      expect.anything(),
+    );
+  });
+
+  it('ignores an unknown deliveryStatus', async () => {
+    renderAt('/content?deliveryStatus=bogus');
+
+    await screen.findByText('Hermeneutics 101');
+    expect(vi.mocked(listContent).mock.calls[0]?.[0]?.deliveryStatus).toBeUndefined();
+  });
+
+  it('applies the Only mine toggle to the request', async () => {
+    vi.mocked(getMe).mockResolvedValue(me('faculty', 'owner-1'));
+    const user = userEvent.setup();
+
+    renderAt('/content');
+
+    await user.click(await screen.findByRole('button', { name: 'Only mine' }));
+
+    expect(listContent).toHaveBeenCalledWith(
+      expect.objectContaining({ mine: true }),
+      expect.anything(),
+    );
+  });
+
+  it('opens the detail sheet from a /content/:id link', async () => {
+    vi.mocked(getMe).mockResolvedValue(me('faculty', 'owner-1'));
+    vi.mocked(getContentPost).mockResolvedValue(post());
+
+    renderAt('/content/c1');
 
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
     expect(getContentPost).toHaveBeenCalledWith('c1', expect.anything());

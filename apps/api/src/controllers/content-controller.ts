@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   CONTENT_FORMATS,
   DISCIPLINE_TAGS,
+  booleanQuerySchema,
   contentCreateMultipartSchema,
   contentCreateSchema,
   contentUpdateSchema,
@@ -26,6 +27,8 @@ const contentQuerySchema = z.object({
   format: z.enum(CONTENT_FORMATS).optional(),
   cohortYear: z.coerce.number().int().min(1900).max(2100).optional(),
   search: z.string().trim().min(1).optional(),
+  mine: booleanQuerySchema.optional(),
+  deliveryStatus: z.enum(['pending', 'processing', 'posted', 'failed']).optional(),
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(100).default(20),
 });
@@ -37,6 +40,8 @@ export const getContent = async (req: Request, res: Response): Promise<void> => 
     formatTag: query.format,
     cohortYear: query.cohortYear,
     search: query.search,
+    authorId: query.mine ? req.user?.id : undefined,
+    deliveryStatus: query.deliveryStatus,
     page: query.page,
     pageSize: query.pageSize,
   });

@@ -17,6 +17,7 @@ import {
   type Paginated,
   type RosterListQuery,
 } from '@/lib/api';
+import { adminKeys, dashboardKeys } from '@/lib/query-keys';
 
 export const ROOT_KEY = 'roster' as const;
 
@@ -31,11 +32,11 @@ export function nextRosterPage(lastPage: Paginated<RosterEntry>): number | undef
   return lastPage.page * lastPage.pageSize < lastPage.total ? lastPage.page + 1 : undefined;
 }
 
-/** Invalidate every roster view plus the dashboard stats tile. */
+/** Invalidate every roster view plus the dashboard. */
 export function invalidateRosterData(client: QueryClient): Promise<unknown> {
   return Promise.all([
     client.invalidateQueries({ queryKey: rosterKeys.all }),
-    client.invalidateQueries({ queryKey: ['dashboard', 'stats'] }),
+    client.invalidateQueries({ queryKey: dashboardKeys.all }),
   ]);
 }
 
@@ -83,12 +84,18 @@ export function useUpdateRoster() {
   });
 }
 
-/** Queue a member removal (the bot delivers it), then refresh roster + stats. */
+/** Queue a member removal (the bot delivers it), then refresh roster, admin views and the dashboard. */
 export function useRemoveMember() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: ({ userId, reason }: { userId: string; reason?: string }) =>
       removeMember(userId, reason),
-    onSuccess: () => invalidateRosterData(client),
+    onSuccess: () =>
+      Promise.all([
+        client.invalidateQueries({ queryKey: rosterKeys.all }),
+        client.invalidateQueries({ queryKey: adminKeys.members }),
+        client.invalidateQueries({ queryKey: adminKeys.auditLogsAll }),
+        client.invalidateQueries({ queryKey: dashboardKeys.all }),
+      ]),
   });
 }

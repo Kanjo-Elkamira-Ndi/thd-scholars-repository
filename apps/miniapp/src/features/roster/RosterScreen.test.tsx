@@ -1,8 +1,10 @@
 import type { RosterEntry, UserStatusResponse } from '@thd/shared';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { getMe, getRosterEntry, listRoster } from '@/lib/api';
-import { renderWithProviders } from '@/test/render';
-import { screen, within } from '@testing-library/react';
+import { createTestQueryClient, renderWithProviders } from '@/test/render';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import RosterScreen from './RosterScreen';
 
@@ -71,5 +73,21 @@ describe('RosterScreen', () => {
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText(/Cohort 2024/)).toBeInTheDocument();
     expect(getRosterEntry).toHaveBeenCalledWith('r1', expect.anything());
+  });
+
+  it('preselects the access-review tab from ?tab=', async () => {
+    const client = createTestQueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/roster?tab=access-review']}>
+          <Routes>
+            <Route path="/roster" element={<RosterScreen />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const tab = await screen.findByRole('tab', { name: 'Access review' });
+    expect(tab).toHaveAttribute('aria-selected', 'true');
   });
 });

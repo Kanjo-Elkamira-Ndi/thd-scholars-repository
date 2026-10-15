@@ -1,10 +1,5 @@
 import { Router } from 'express';
-import {
-  getAuditLogs,
-  getDashboardStats,
-  getSettings,
-  patchSettings,
-} from '../controllers/admin-config-controller';
+import { getAuditLogs, getSettings, patchSettings } from '../controllers/admin-config-controller';
 import {
   getMembers,
   getRosterAudit,
@@ -22,7 +17,6 @@ router.patch('/users/:id/role', requireRole('admin'), asyncHandler(patchUserRole
 router.get('/audit-logs', requireRole('admin'), asyncHandler(getAuditLogs));
 router.get('/settings', requireRole('admin'), asyncHandler(getSettings));
 router.patch('/settings', requireRole('admin'), asyncHandler(patchSettings));
-router.get('/dashboard/stats', requireRole('admin'), asyncHandler(getDashboardStats));
 
 router.get('/members', requireRole('admin'), asyncHandler(getMembers));
 router.post(

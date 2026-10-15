@@ -1,7 +1,9 @@
-import type { ContentFormat, DisciplineTag } from '@thd/shared';
+import type { ContentDeliveryStatus, ContentFormat, DisciplineTag } from '@thd/shared';
+import { Button } from '@/components/ui/button';
 import { FilterBar } from '@/components/shared/FilterBar';
 import { FilterSelect } from '@/components/shared/FilterSelect';
 import { SearchInput } from '@/components/shared/SearchInput';
+import { contentDeliveryLabel } from '@/components/shared/StatusPill';
 import { DISCIPLINE_OPTIONS, FORMAT_OPTIONS } from '../labels';
 
 export interface ContentFilterValue {
@@ -9,7 +11,21 @@ export interface ContentFilterValue {
   disciplineTag?: DisciplineTag;
   formatTag?: ContentFormat;
   cohortYear?: number;
+  mine?: boolean;
+  deliveryStatus?: ContentDeliveryStatus;
 }
+
+const DELIVERY_STATUSES: ContentDeliveryStatus[] = [
+  'pending',
+  'processing',
+  'posted',
+  'failed',
+];
+
+const STATUS_OPTIONS = [
+  { value: '', label: 'All statuses' },
+  ...DELIVERY_STATUSES.map((status) => ({ value: status, label: contentDeliveryLabel(status) })),
+];
 
 function cohortOptions(): { value: string; label: string }[] {
   const currentYear = new Date().getFullYear();
@@ -23,9 +39,11 @@ function cohortOptions(): { value: string; label: string }[] {
 interface ContentFiltersProps {
   value: ContentFilterValue;
   onChange: (value: ContentFilterValue) => void;
+  /** Author-facing filters (mine / delivery status) are only offered to faculty and admins. */
+  showAuthorFilters?: boolean;
 }
 
-export function ContentFilters({ value, onChange }: ContentFiltersProps) {
+export function ContentFilters({ value, onChange, showAuthorFilters = false }: ContentFiltersProps) {
   return (
     <div className="space-y-2">
       <SearchInput
@@ -68,6 +86,32 @@ export function ContentFilters({ value, onChange }: ContentFiltersProps) {
             })
           }
         />
+        {showAuthorFilters ? (
+          <>
+            <Button
+              type="button"
+              variant={value.mine ? 'default' : 'outline'}
+              aria-pressed={Boolean(value.mine)}
+              className="h-11 shrink-0"
+              onClick={() => onChange({ ...value, mine: value.mine ? undefined : true })}
+            >
+              Only mine
+            </Button>
+            <FilterSelect
+              label="Delivery status"
+              options={STATUS_OPTIONS}
+              value={value.deliveryStatus ?? ''}
+              onChange={(event) =>
+                onChange({
+                  ...value,
+                  deliveryStatus: (event.target.value || undefined) as
+                    | ContentDeliveryStatus
+                    | undefined,
+                })
+              }
+            />
+          </>
+        ) : null}
       </FilterBar>
     </div>
   );

@@ -224,3 +224,22 @@ export const countAccessReviewPending = async (db: Db = pool): Promise<number> =
   );
   return Number(rows[0].count);
 };
+
+export const countActiveScholars = async (db: Db = pool): Promise<number> => {
+  const { rows } = await db.query<{ count: string }>(
+    `SELECT count(*)::text AS count FROM roster WHERE status = 'active'`,
+  );
+  return Number(rows[0].count);
+};
+
+export const countAccessReviewPendingBy = async (
+  updatedBy: string,
+  db: Db = pool,
+): Promise<number> => {
+  const { rows } = await db.query<{ count: string }>(
+    `SELECT count(*)::text AS count FROM roster
+      WHERE access_review_pending = true AND updated_by = $1`,
+    [updatedBy],
+  );
+  return Number(rows[0].count);
+};

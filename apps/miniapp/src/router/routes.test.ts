@@ -19,7 +19,7 @@ describe('navItemsForRole', () => {
       '/content',
       '/roster',
       '/requests',
-      '/members',
+      '/admin',
     ]);
   });
 
@@ -35,8 +35,10 @@ describe('navItemsForRole', () => {
 
   it('never shows a non-nav route in the tab bar', () => {
     const navPaths = navItemsForRole('admin').map((route) => route.path);
-    expect(navPaths).not.toContain('/audit');
-    expect(navPaths).not.toContain('/settings');
+    expect(navPaths).not.toContain('/admin/users');
+    expect(navPaths).not.toContain('/admin/members');
+    expect(navPaths).not.toContain('/admin/audit');
+    expect(navPaths).not.toContain('/admin/settings');
     expect(navPaths).not.toContain('/registration');
     expect(navPaths).not.toContain('/content/new');
     expect(navPaths).not.toContain('/content/:id/edit');
@@ -46,7 +48,7 @@ describe('navItemsForRole', () => {
 describe('routeByPath', () => {
   it('finds routes and their access rules', () => {
     expect(routeByPath('/')?.label).toBe('Home');
-    expect(routeByPath('/audit')?.roles).toEqual(['admin']);
+    expect(routeByPath('/admin/audit')?.roles).toEqual(['admin']);
     expect(routeByPath('/content')?.roles).toBeUndefined();
     expect(routeByPath('/nope')).toBeUndefined();
   });
@@ -70,6 +72,22 @@ describe('content composer routes', () => {
     for (const path of ['/content/new', '/content/:id/edit']) {
       const route = routeByPath(path);
       expect(route?.roles).toEqual(['faculty', 'admin']);
+      expect(route?.showInNav).toBe(false);
+    }
+  });
+});
+
+describe('admin routes', () => {
+  it('exposes an admin-only hub in the tab bar', () => {
+    const hub = routeByPath('/admin');
+    expect(hub?.roles).toEqual(['admin']);
+    expect(hub?.showInNav).toBe(true);
+  });
+
+  it('keeps the four admin tools admin-only and out of the tab bar', () => {
+    for (const path of ['/admin/users', '/admin/members', '/admin/audit', '/admin/settings']) {
+      const route = routeByPath(path);
+      expect(route?.roles).toEqual(['admin']);
       expect(route?.showInNav).toBe(false);
     }
   });

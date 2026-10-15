@@ -1,4 +1,10 @@
-import { createRegistrationPayloadSchema, type RegistrationResult, type User } from '@thd/shared';
+import {
+  AUDIT_ACTIONS,
+  AUDIT_TARGET_TYPES,
+  createRegistrationPayloadSchema,
+  type RegistrationResult,
+  type User,
+} from '@thd/shared';
 import { env } from '../config/env';
 import { withTransaction } from '../db/transaction';
 import * as auditRepo from '../repositories/audit-logs.repository';
@@ -56,8 +62,8 @@ export const submitRegistration = async ({
     await auditRepo.insertAuditLog(
       {
         actorUserId: null,
-        action: approved ? 'approve_join_request' : 'decline_join_request',
-        targetType: 'join_requests',
+        action: approved ? AUDIT_ACTIONS.APPROVE_JOIN_REQUEST : AUDIT_ACTIONS.DECLINE_JOIN_REQUEST,
+        targetType: AUDIT_TARGET_TYPES.JOIN_REQUESTS,
         targetId: joinRequest.id,
         details: {
           registrationId: body.registrationId,

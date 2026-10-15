@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useBackButton } from '@/hooks/use-back-button';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -33,6 +34,8 @@ export function ConfirmDialog({
   loading = false,
   onConfirm,
 }: ConfirmDialogProps) {
+  useBackButton(open, () => onOpenChange(false));
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>

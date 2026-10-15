@@ -75,4 +75,23 @@ describe('useBackButton', () => {
     expect(mocks.backButton.mount).not.toHaveBeenCalled();
     expect(mocks.backButton.show).toHaveBeenCalledTimes(1);
   });
+
+  it('only lets the top-most overlay handle Back', () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const { unmount: unmountFirst } = renderHook(() => useBackButton(true, first));
+    const { unmount: unmountSecond } = renderHook(() => useBackButton(true, second));
+
+    const handler = mocks.backButton.onClick.mock.calls[0]?.[0] as () => void;
+
+    handler();
+    expect(second).toHaveBeenCalledTimes(1);
+    expect(first).not.toHaveBeenCalled();
+
+    unmountSecond();
+    handler();
+    expect(first).toHaveBeenCalledTimes(1);
+
+    unmountFirst();
+  });
 });

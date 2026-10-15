@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, act, cleanup } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router';
 import { ConfirmDialog } from './ConfirmDialog';
 import { FilterBar } from './FilterBar';
 import { ListState } from './ListState';
@@ -66,15 +67,17 @@ describe('ConfirmDialog', () => {
   it('fires confirm when the primary action is clicked', () => {
     const onConfirm = vi.fn();
     render(
-      <ConfirmDialog
-        open
-        onOpenChange={vi.fn()}
-        title="Remove member"
-        description="This cannot be undone."
-        confirmLabel="Remove"
-        tone="destructive"
-        onConfirm={onConfirm}
-      />,
+      <MemoryRouter>
+        <ConfirmDialog
+          open
+          onOpenChange={vi.fn()}
+          title="Remove member"
+          description="This cannot be undone."
+          confirmLabel="Remove"
+          tone="destructive"
+          onConfirm={onConfirm}
+        />
+      </MemoryRouter>,
     );
 
     expect(screen.getByText('Remove member')).toBeInTheDocument();
@@ -86,7 +89,9 @@ describe('ConfirmDialog', () => {
     const onConfirm = vi.fn();
     const onOpenChange = vi.fn();
     render(
-      <ConfirmDialog open onOpenChange={onOpenChange} title="Remove" onConfirm={onConfirm} />,
+      <MemoryRouter>
+        <ConfirmDialog open onOpenChange={onOpenChange} title="Remove" onConfirm={onConfirm} />
+      </MemoryRouter>,
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));

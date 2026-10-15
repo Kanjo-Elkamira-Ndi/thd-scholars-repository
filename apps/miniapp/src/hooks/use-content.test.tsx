@@ -104,7 +104,7 @@ describe('useUpdateContent', () => {
     expect(api.updateContent).toHaveBeenCalledWith('c1', { title: 'Renamed' });
     expect(client.getQueryData(['content', 'detail', 'c1'])).toEqual(post({ title: 'Renamed' }));
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['content'] });
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['dashboard', 'stats'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['dashboard'] });
   });
 });
 

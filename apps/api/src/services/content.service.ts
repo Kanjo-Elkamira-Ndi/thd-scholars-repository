@@ -12,7 +12,7 @@ import type {
   ContentPost,
   Role,
 } from '@thd/shared';
-import { CONTENT_MIME_WHITELIST } from '@thd/shared';
+import { AUDIT_ACTIONS, AUDIT_TARGET_TYPES, CONTENT_MIME_WHITELIST } from '@thd/shared';
 import { env } from '../config/env';
 import { withTransaction } from '../db/transaction';
 import * as auditRepo from '../repositories/audit-logs.repository';
@@ -149,8 +149,8 @@ export async function createContent(input: CreateContentInput): Promise<ContentP
       await auditRepo.insertAuditLog(
         {
           actorUserId: input.actorUserId,
-          action: 'content_created',
-          targetType: 'content_posts',
+          action: AUDIT_ACTIONS.CONTENT_CREATED,
+          targetType: AUDIT_TARGET_TYPES.CONTENT_POSTS,
           targetId: created.id,
           details: { title: created.title },
         },
@@ -205,8 +205,8 @@ export async function updateContent(input: {
     await auditRepo.insertAuditLog(
       {
         actorUserId: input.actorUserId,
-        action: 'content_updated',
-        targetType: 'content_posts',
+        action: AUDIT_ACTIONS.CONTENT_UPDATED,
+        targetType: AUDIT_TARGET_TYPES.CONTENT_POSTS,
         targetId: updated.id,
         details: { title: updated.title, changed: Object.keys(input.patch) },
       },
@@ -248,8 +248,8 @@ export async function deleteContent(input: {
     await auditRepo.insertAuditLog(
       {
         actorUserId: input.actorUserId,
-        action: 'content_deleted',
-        targetType: 'content_posts',
+        action: AUDIT_ACTIONS.CONTENT_DELETED,
+        targetType: AUDIT_TARGET_TYPES.CONTENT_POSTS,
         targetId: input.id,
         details: { title: post.title, hardDeleted: neverClaimed },
       },
@@ -288,8 +288,8 @@ export async function claimContent(input: {
         });
         await auditRepo.insertAuditLog({
           actorUserId: null,
-          action: 'content_delivery_failed',
-          targetType: 'content_posts',
+          action: AUDIT_ACTIONS.CONTENT_DELIVERY_FAILED,
+          targetType: AUDIT_TARGET_TYPES.CONTENT_POSTS,
           targetId: record.id,
           details: {
             title: record.title,
@@ -338,8 +338,8 @@ export async function completeContent(
       await auditRepo.insertAuditLog(
         {
           actorUserId: null,
-          action: 'content_posted',
-          targetType: 'content_posts',
+          action: AUDIT_ACTIONS.CONTENT_POSTED,
+          targetType: AUDIT_TARGET_TYPES.CONTENT_POSTS,
           targetId: input.id,
           details: { title: record.title, telegramMessageId: input.telegramMessageId },
         },
@@ -380,8 +380,8 @@ export async function completeContent(
   await contentRepo.markContentFailed(input.id, { error, terminal: true });
   await auditRepo.insertAuditLog({
     actorUserId: null,
-    action: 'content_delivery_failed',
-    targetType: 'content_posts',
+    action: AUDIT_ACTIONS.CONTENT_DELIVERY_FAILED,
+    targetType: AUDIT_TARGET_TYPES.CONTENT_POSTS,
     targetId: input.id,
     details: { title: record.title, action: record.action, attempts: record.attempts, error },
   });

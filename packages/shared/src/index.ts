@@ -1,5 +1,6 @@
 export * from './types/enums';
 export * from './types/entities';
+export * from './types/dashboard';
 export * from './types/internal';
 export * from './types/settings';
 export * from './constants/content';

@@ -82,12 +82,12 @@ describe('useUpdateRoster', () => {
 
     expect(api.updateRoster).toHaveBeenCalledWith('r1', { status: 'graduated' });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['roster'] });
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['dashboard', 'stats'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['dashboard'] });
   });
 });
 
 describe('useRemoveMember', () => {
-  it('queues the removal and refreshes roster + dashboard', async () => {
+  it('queues the removal and refreshes roster, admin views and dashboard', async () => {
     vi.mocked(api.removeMember).mockResolvedValue({
       removal: { id: 'm1' } as never,
       created: true,
@@ -100,6 +100,8 @@ describe('useRemoveMember', () => {
 
     expect(api.removeMember).toHaveBeenCalledWith('u1', 'no longer active');
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['roster'] });
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['dashboard', 'stats'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['admin', 'members'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['admin', 'audit-logs'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['dashboard'] });
   });
 });

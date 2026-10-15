@@ -12,6 +12,7 @@ import healthRoutes from './routes/health-routes';
 import internalRoutes from './routes/internal-routes';
 import registrationsRoutes from './routes/registrations-routes';
 import adminRoutes from './routes/admin-routes';
+import dashboardRoutes from './routes/dashboard-routes';
 import rosterRoutes from './routes/roster-routes';
 
 const app = express();
@@ -45,6 +46,7 @@ app.use('/api', healthRoutes);
 app.use('/api', authUser, authRoutes);
 app.use('/api', authUser, registrationsRoutes);
 app.use('/api', authUser, contentRoutes);
+app.use('/api', authUser, dashboardRoutes);
 app.use('/api', authUser, adminRoutes);
 app.use('/api', authUser, rosterRoutes);
 app.use('/internal', internalServiceToken, internalRoutes);

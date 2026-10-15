@@ -1,4 +1,4 @@
-import type { ContentPost, RegistrationPayload, UserStatusResponse } from '@thd/shared';
+import type { ContentPost, RegistrationPayload, SystemSettings, UserStatusResponse } from '@thd/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from './errors';
 import {
@@ -8,13 +8,20 @@ import {
   buildQuery,
   deleteContent,
   getContentPost,
+  getDashboard,
   getMe,
   getRosterAudit,
+  getSettings,
+  listAuditLogs,
   listContent,
+  listMembers,
   listRoster,
+  listUsers,
   postRegistration,
   removeMember,
   updateRoster,
+  updateSettings,
+  updateUserRole,
   uploadContent,
 } from './api';
 
@@ -196,6 +203,17 @@ describe('content resources', () => {
     );
   });
 
+  it('mine + deliveryStatus serialise into the query string', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ items: [], total: 0, page: 1, pageSize: 20 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await listContent({ mine: true, deliveryStatus: 'failed' });
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${API_BASE_URL}/content?mine=true&deliveryStatus=failed`,
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
+
   it('getContentPost unwraps the envelope', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ contentPost: post })));
     await expect(getContentPost('c1')).resolves.toEqual(post);
@@ -238,6 +256,131 @@ describe('roster resources', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       `${API_BASE_URL}/members/u9/remove`,
       expect.objectContaining({ method: 'POST' }),
+    );
+  });
+});
+
+describe('dashboard + admin resources', () => {
+  const adminPayload = {
+    role: 'admin',
+    totalScholars: 3,
+    pendingJoinRequests: 1,
+    pendingAccessReviews: 2,
+    contentByDiscipline: [{ discipline: 'Missiology', count: 4 }],
+    recentActivity: [
+      { action: 'update_settings', actorUserId: 'u1', targetType: 'settings', createdAt: '2026-01-01T00:00:00.000Z' },
+    ],
+  };
+
+  it('getDashboard GETs /dashboard and unwraps the payload', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ dashboard: adminPayload }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(getDashboard()).resolves.toEqual(adminPayload);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${API_BASE_URL}/dashboard`,
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
+
+  it('listUsers GETs /users and unwraps the array', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ users: [sample.user] }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(listUsers()).resolves.toEqual([sample.user]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${API_BASE_URL}/users`,
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
+
+  it('updateUserRole PATCHes /users/:id/role with { role }', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ user: { ...sample.user, role: 'faculty' } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(updateUserRole('u1', 'faculty')).resolves.toMatchObject({ role: 'faculty' });
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${API_BASE_URL}/users/u1/role`,
+      expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ role: 'faculty' }) }),
+    );
+  });
+
+  it('listAuditLogs GETs /audit-logs with query params', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ logs: [], total: 0, page: 2, pageSize: 50 }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(listAuditLogs({ action: 'update_settings', page: 2, pageSize: 50 })).resolves.toEqual({
+      logs: [],
+      total: 0,
+      page: 2,
+      pageSize: 50,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${API_BASE_URL}/audit-logs?action=update_settings&page=2&pageSize=50`,
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
+
+  it('listAuditLogs omits unset params', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ logs: [], total: 0, page: 1, pageSize: 20 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await listAuditLogs();
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${API_BASE_URL}/audit-logs`,
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
+
+  it('getSettings GETs /settings and unwraps the object', async () => {
+    const settings: SystemSettings = {
+      registrationIdPattern: 'DIBI-THD-####',
+      availableCohortYears: [2026],
+      inviteLinkExpirySeconds: 3600,
+      maxUploadSizeBytes: 1024,
+      maxContentUploadBytes: 2048,
+    };
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ settings }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(getSettings()).resolves.toEqual(settings);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${API_BASE_URL}/settings`,
+      expect.objectContaining({ method: 'GET' }),
+    );
+  });
+
+  it('updateSettings PATCHes only the given fields', async () => {
+    const settings = { maxContentUploadBytes: 4096 };
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ settings: { ...settings, registrationIdPattern: 'kept' } }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(updateSettings({ maxContentUploadBytes: 4096 })).resolves.toEqual({
+      ...settings,
+      registrationIdPattern: 'kept',
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${API_BASE_URL}/settings`,
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ maxContentUploadBytes: 4096 }),
+      }),
+    );
+  });
+
+  it('listMembers GETs /members and unwraps the array', async () => {
+    const members = [{ id: 'm1', userId: 'u1', fullName: 'Ada' }];
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ members }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(listMembers()).resolves.toEqual(members);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${API_BASE_URL}/members`,
+      expect.objectContaining({ method: 'GET' }),
     );
   });
 });

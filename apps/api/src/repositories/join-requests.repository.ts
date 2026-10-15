@@ -246,3 +246,12 @@ export const countRecentDeclines = async (
   );
   return Number(rows[0].count);
 };
+
+export const countPendingSince = async (since: Date, db: Db = pool): Promise<number> => {
+  const { rows } = await db.query<{ count: string }>(
+    `SELECT COUNT(*)::text AS count FROM join_requests
+     WHERE status = 'pending' AND created_at >= $1`,
+    [since],
+  );
+  return Number(rows[0].count);
+};

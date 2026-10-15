@@ -1,5 +1,7 @@
 import type { PoolClient } from 'pg';
 import {
+  AUDIT_ACTIONS,
+  AUDIT_TARGET_TYPES,
   createRosterCreateSchema,
   rosterUpdateSchema,
   type RosterEntry,
@@ -45,8 +47,8 @@ export const createRosterEntry = async (args: { actorUserId: string; input: unkn
       await auditRepo.insertAuditLog(
         {
           actorUserId: args.actorUserId,
-          action: 'create_roster_entry',
-          targetType: 'roster',
+          action: AUDIT_ACTIONS.CREATE_ROSTER_ENTRY,
+          targetType: AUDIT_TARGET_TYPES.ROSTER,
           targetId: entry.id,
           details: { registrationId: entry.registrationId, cohortYear: entry.cohortYear },
         },
@@ -108,8 +110,10 @@ export const updateRosterEntry = async (args: {
     await auditRepo.insertAuditLog(
       {
         actorUserId: args.actorUserId,
-        action: statusChanged ? 'update_roster_status' : 'update_roster_entry',
-        targetType: 'roster',
+        action: statusChanged
+          ? AUDIT_ACTIONS.UPDATE_ROSTER_STATUS
+          : AUDIT_ACTIONS.UPDATE_ROSTER_ENTRY,
+        targetType: AUDIT_TARGET_TYPES.ROSTER,
         targetId: args.id,
         details: statusChanged
           ? {

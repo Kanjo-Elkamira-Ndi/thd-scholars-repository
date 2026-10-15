@@ -1,12 +1,12 @@
 import { ErrorState } from '@/components/shared/ErrorState';
 import { CardSkeleton } from '@/components/shared/LoadingSkeletons';
 import { PageTransition } from '@/components/shared/PageTransition';
+import { DashboardScreen } from '@/features/dashboard/DashboardScreen';
 import { useMe } from '@/hooks/use-me';
 import { useTelegramUser } from '@/hooks/use-telegram';
 import { formatTelegramName } from '@/lib/telegram';
 import { ProfileCard } from './ProfileCard';
 import { RoleActions } from './RoleActions';
-import { StatusCard } from './StatusCard';
 
 export function HomeScreen() {
   const { data, isPending, isError, refetch } = useMe();
@@ -41,7 +41,7 @@ export function HomeScreen() {
   return (
     <PageTransition className="space-y-4">
       <ProfileCard name={name} handle={handle} role={data.user.role} />
-      <StatusCard roster={data.roster} />
+      <DashboardScreen />
       <RoleActions role={data.user.role} />
     </PageTransition>
   );

@@ -1,16 +1,23 @@
 import type {
+  AuditLog,
   ContentCreateInput,
+  ContentDeliveryStatus,
   ContentFormat,
   ContentPost,
   ContentUpdateInput,
+  DashboardPayload,
   DisciplineTag,
   MemberRemoval,
+  MemberSummary,
   RegistrationPayload,
   RegistrationResult,
+  Role,
   RosterAuditEntry,
   RosterEntry,
   RosterStatus,
   RosterUpdateInput,
+  SystemSettings,
+  User,
   UserStatusResponse,
 } from '@thd/shared';
 import { ApiError } from './errors';
@@ -134,6 +141,8 @@ export interface ContentListQuery {
   format?: ContentFormat;
   cohortYear?: number;
   search?: string;
+  mine?: boolean;
+  deliveryStatus?: ContentDeliveryStatus;
   page?: number;
   pageSize?: number;
 }
@@ -350,6 +359,80 @@ export function removeMember(
     body: reason ? { reason } : {},
     signal,
   });
+}
+
+export interface AuditLogQuery {
+  action?: string;
+  actorUserId?: string;
+  targetType?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface AuditLogPage {
+  logs: AuditLog[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/** Role-aware dashboard payload; the shape depends on the caller's role. */
+export async function getDashboard(signal?: AbortSignal): Promise<DashboardPayload> {
+  const { dashboard } = await apiFetch<{ dashboard: DashboardPayload }>('/dashboard', { signal });
+  return dashboard;
+}
+
+/** List every user account (admin only). */
+export async function listUsers(signal?: AbortSignal): Promise<User[]> {
+  const { users } = await apiFetch<{ users: User[] }>('/users', { signal });
+  return users;
+}
+
+/** Change a user's role. Rejects self-changes and the last admin. */
+export async function updateUserRole(
+  id: string,
+  role: Role,
+  signal?: AbortSignal,
+): Promise<User> {
+  const { user } = await apiFetch<{ user: User }>(`/users/${id}/role`, {
+    method: 'PATCH',
+    body: { role },
+    signal,
+  });
+  return user;
+}
+
+/** Filtered audit log page. */
+export function listAuditLogs(
+  query: AuditLogQuery = {},
+  signal?: AbortSignal,
+): Promise<AuditLogPage> {
+  return apiFetch<AuditLogPage>(`/audit-logs${buildQuery({ ...query })}`, { signal });
+}
+
+/** Read the system settings. */
+export async function getSettings(signal?: AbortSignal): Promise<SystemSettings> {
+  const { settings } = await apiFetch<{ settings: SystemSettings }>('/settings', { signal });
+  return settings;
+}
+
+/** Patch only the fields you send. */
+export async function updateSettings(
+  patch: Partial<SystemSettings>,
+  signal?: AbortSignal,
+): Promise<SystemSettings> {
+  const { settings } = await apiFetch<{ settings: SystemSettings }>('/settings', {
+    method: 'PATCH',
+    body: patch,
+    signal,
+  });
+  return settings;
+}
+
+/** Roster-backed member directory (admins and registrars). */
+export async function listMembers(signal?: AbortSignal): Promise<MemberSummary[]> {
+  const { members } = await apiFetch<{ members: MemberSummary[] }>('/members', { signal });
+  return members;
 }
 
 export function isUnauthorized(error: unknown): boolean {

@@ -13,7 +13,6 @@ const adminOnly = [
   ['get', '/api/users'],
   ['get', '/api/audit-logs'],
   ['get', '/api/settings'],
-  ['get', '/api/dashboard/stats'],
   ['get', '/api/members'],
 ] as const;
 

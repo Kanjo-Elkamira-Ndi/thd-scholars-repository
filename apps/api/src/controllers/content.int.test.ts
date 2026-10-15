@@ -177,6 +177,68 @@ describe('GET /api/content', () => {
     expect(res.body.items).toHaveLength(1);
     expect(res.body.pageSize).toBe(1);
   });
+
+  it('mine=true returns only the caller posts', async () => {
+    await create({ title: 'Mine' });
+    await request(app)
+      .post('/api/content')
+      .set(auth(otherFacultyTg))
+      .send(jsonPost({ title: 'Theirs' }));
+
+    const res = await request(app)
+      .get('/api/content')
+      .query({ mine: 'true' })
+      .set(auth(facultyTg));
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(1);
+    expect(res.body.items[0].title).toBe('Mine');
+    expect(res.body.items[0].postedBy).toBe(facultyId);
+  });
+
+  it('mine=true combines with the search filter', async () => {
+    await create({ title: 'Alpha Grace' });
+    await create({ title: 'Beta Missions' });
+    const res = await request(app)
+      .get('/api/content')
+      .query({ mine: 'true', search: 'grace' })
+      .set(auth(facultyTg));
+    expect(res.body.total).toBe(1);
+    expect(res.body.items[0].title).toBe('Alpha Grace');
+  });
+
+  it('deliveryStatus=failed returns only failed deliveries for the caller', async () => {
+    const failed = await create({ title: 'Failed one' });
+    await create({ title: 'Posted one' });
+    await pool.query(`UPDATE content_posts SET delivery_status = 'failed' WHERE id = $1`, [
+      failed.body.contentPost.id,
+    ]);
+
+    const res = await request(app)
+      .get('/api/content')
+      .query({ mine: 'true', deliveryStatus: 'failed' })
+      .set(auth(facultyTg));
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(1);
+    expect(res.body.items[0].title).toBe('Failed one');
+  });
+
+  it('rejects an unknown deliveryStatus with 400', async () => {
+    const res = await request(app)
+      .get('/api/content')
+      .query({ deliveryStatus: 'bogus' })
+      .set(auth(facultyTg));
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('rejects a non-boolean mine value with 400', async () => {
+    const res = await request(app)
+      .get('/api/content')
+      .query({ mine: 'maybe' })
+      .set(auth(facultyTg));
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
 });
 
 describe('PATCH /api/content/:id', () => {

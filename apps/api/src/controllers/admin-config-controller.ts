@@ -1,7 +1,6 @@
 import type { Request, Response } from 'express';
 import { auditLogQuerySchema, settingsUpdateSchema } from '@thd/shared';
 import * as auditService from '../services/audit-logs.service';
-import * as dashboardService from '../services/dashboard.service';
 import * as settingsService from '../services/settings.service';
 import { AppError } from '../utils/errors';
 
@@ -24,9 +23,4 @@ export const getAuditLogs = async (req: Request, res: Response): Promise<void> =
   const query = auditLogQuerySchema.parse(req.query);
   const result = await auditService.listAuditLogs(query);
   res.status(200).json(result);
-};
-
-export const getDashboardStats = async (_req: Request, res: Response): Promise<void> => {
-  const stats = await dashboardService.getDashboardStats();
-  res.status(200).json({ stats });
 };

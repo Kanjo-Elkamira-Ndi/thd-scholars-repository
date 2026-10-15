@@ -120,6 +120,8 @@ export interface ContentListFilters {
   formatTag?: ContentPost['formatTag'];
   cohortYear?: number;
   search?: string;
+  authorId?: string;
+  deliveryStatus?: ContentPost['deliveryStatus'];
   page: number;
   pageSize: number;
 }
@@ -146,6 +148,14 @@ export async function listContentPosts(
   if (filters.search) {
     values.push(`%${escapeLike(filters.search)}%`);
     conditions.push(`title ILIKE $${values.length} ESCAPE '\\'`);
+  }
+  if (filters.authorId) {
+    values.push(filters.authorId);
+    conditions.push(`posted_by = $${values.length}`);
+  }
+  if (filters.deliveryStatus) {
+    values.push(filters.deliveryStatus);
+    conditions.push(`delivery_status = $${values.length}`);
   }
 
   const where = `WHERE ${conditions.join(' AND ')}`;
@@ -176,6 +186,39 @@ export async function getContentPostById(
     [id],
   );
   return rows.length > 0 ? mapContentRow(rows[0]) : null;
+}
+
+export async function countByAuthor(authorId: string, db: Db = pool): Promise<number> {
+  const { rows } = await db.query<{ count: string }>(
+    `SELECT count(*)::text AS count FROM content_posts
+      WHERE posted_by = $1 AND deleted_at IS NULL`,
+    [authorId],
+  );
+  return Number(rows[0].count);
+}
+
+export async function countFailedByAuthor(authorId: string, db: Db = pool): Promise<number> {
+  const { rows } = await db.query<{ count: string }>(
+    `SELECT count(*)::text AS count FROM content_posts
+      WHERE posted_by = $1 AND deleted_at IS NULL AND delivery_status = 'failed'`,
+    [authorId],
+  );
+  return Number(rows[0].count);
+}
+
+export async function listRecentByAuthor(
+  authorId: string,
+  limit: number,
+  db: Db = pool,
+): Promise<ContentPost[]> {
+  const { rows } = await db.query<ContentPostRow>(
+    `SELECT ${CONTENT_COLUMNS} FROM content_posts
+      WHERE posted_by = $1 AND deleted_at IS NULL
+      ORDER BY created_at DESC, id DESC
+      LIMIT $2`,
+    [authorId, limit],
+  );
+  return rows.map(mapContentRow);
 }
 
 export async function getContentPostDeletionInfo(

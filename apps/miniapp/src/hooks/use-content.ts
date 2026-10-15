@@ -19,6 +19,7 @@ import {
   type Paginated,
   type UploadContentFields,
 } from '@/lib/api';
+import { dashboardKeys } from '@/lib/query-keys';
 
 export const ROOT_KEY = 'content' as const;
 
@@ -50,11 +51,11 @@ export function contentRefetchInterval(
   return hasActiveDelivery(pages) ? 5000 : false;
 }
 
-/** Invalidate every content view plus the dashboard stats tile. */
+/** Invalidate every content view plus the dashboard. */
 export function invalidateContentData(client: QueryClient): Promise<unknown> {
   return Promise.all([
     client.invalidateQueries({ queryKey: contentKeys.all }),
-    client.invalidateQueries({ queryKey: ['dashboard', 'stats'] }),
+    client.invalidateQueries({ queryKey: dashboardKeys.all }),
   ]);
 }
 

@@ -1,7 +1,7 @@
 import type { Role } from '@thd/shared';
 import { ROLES } from '@thd/shared';
 import type { LucideIcon } from 'lucide-react';
-import { BookOpen, ClipboardList, Inbox, Home, Settings, ShieldCheck, UserCog, Users } from 'lucide-react';
+import { BookOpen, ClipboardList, Inbox, Home, Settings, UserCog } from 'lucide-react';
 import { lazy, Suspense, type ComponentType, type ReactElement, type ReactNode } from 'react';
 import { ScreenSkeleton } from '@/components/shared/LoadingSkeletons';
 import { HomeScreen } from '@/features/home/HomeScreen';
@@ -11,6 +11,11 @@ import { RegistrationScreen } from '@/features/registration/RegistrationScreen';
 const RosterScreen = lazy(() => import('@/features/roster/RosterScreen'));
 const ContentScreen = lazy(() => import('@/features/content/ContentScreen'));
 const ContentComposerScreen = lazy(() => import('@/features/content/ContentComposerScreen'));
+const AdminHubScreen = lazy(() => import('@/features/admin/AdminHubScreen'));
+const AdminUsersScreen = lazy(() => import('@/features/admin/AdminUsersScreen'));
+const AdminMembersScreen = lazy(() => import('@/features/admin/AdminMembersScreen'));
+const AdminAuditScreen = lazy(() => import('@/features/admin/AdminAuditScreen'));
+const AdminSettingsScreen = lazy(() => import('@/features/admin/AdminSettingsScreen'));
 
 /** Wrap a lazily-loaded screen in a suspense boundary. */
 function lazyElement(Component: ComponentType): ReactElement {
@@ -71,16 +76,11 @@ export const routes: AppRoute[] = [
     showInNav: true,
   },
   {
-    path: '/members',
-    label: 'Members',
-    icon: Users,
+    path: '/admin',
+    label: 'Admin',
+    icon: Settings,
     roles: ['admin'],
-    element: (
-      <PlaceholderScreen
-        title="Members"
-        description="Manage roles, access reviews and removals across the community."
-      />
-    ),
+    element: lazyElement(AdminHubScreen),
     showInNav: true,
   },
   {
@@ -108,29 +108,38 @@ export const routes: AppRoute[] = [
     showInNav: false,
   },
   {
-    path: '/audit',
-    label: 'Audit log',
-    icon: ShieldCheck,
-    element: (
-      <PlaceholderScreen
-        title="Audit log"
-        description="Every privileged action, with actors and timestamps."
-      />
-    ),
-    roles: ['admin'],
+    path: '/content/:id',
+    label: 'Library entry',
+    icon: BookOpen,
+    element: lazyElement(ContentScreen),
     showInNav: false,
   },
   {
-    path: '/settings',
-    label: 'Settings',
-    icon: Settings,
-    element: (
-      <PlaceholderScreen
-        title="Settings"
-        description="Configuration for the repository and its integrations."
-      />
-    ),
+    path: '/admin/users',
+    label: 'Users & roles',
     roles: ['admin'],
+    element: lazyElement(AdminUsersScreen),
+    showInNav: false,
+  },
+  {
+    path: '/admin/members',
+    label: 'Members',
+    roles: ['admin'],
+    element: lazyElement(AdminMembersScreen),
+    showInNav: false,
+  },
+  {
+    path: '/admin/audit',
+    label: 'Audit log',
+    roles: ['admin'],
+    element: lazyElement(AdminAuditScreen),
+    showInNav: false,
+  },
+  {
+    path: '/admin/settings',
+    label: 'Settings',
+    roles: ['admin'],
+    element: lazyElement(AdminSettingsScreen),
     showInNav: false,
   },
 ];

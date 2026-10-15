@@ -179,11 +179,3 @@ export interface JobRun {
   startedAt: string;
   finishedAt: string | null;
 }
-
-export interface DashboardStats {
-  totalScholars: number;
-  pendingJoinRequests: number;
-  pendingAccessReviews: number;
-  contentByDiscipline: { discipline: DisciplineTag; count: number }[];
-  recentActivity: AuditLog[];
-}
