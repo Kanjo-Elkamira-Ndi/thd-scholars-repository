@@ -13,7 +13,12 @@ export function AdminDashboard({ data }: { data: AdminDashboardData }) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3">
-        <StatCard label="Active scholars" value={data.totalScholars} icon={GraduationCap} to="/admin/members" />
+        <StatCard
+          label="Active scholars"
+          value={data.totalScholars}
+          icon={GraduationCap}
+          to="/roster"
+        />
         <StatCard
           label="Pending requests"
           hint="Last 30 days"
@@ -25,7 +30,7 @@ export function AdminDashboard({ data }: { data: AdminDashboardData }) {
           value={data.pendingAccessReviews}
           icon={ShieldCheck}
           tone={data.pendingAccessReviews > 0 ? 'warning' : 'default'}
-          to="/admin/members"
+          to="/roster?tab=access-review"
         />
       </div>
 
@@ -39,7 +44,7 @@ export function AdminDashboard({ data }: { data: AdminDashboardData }) {
               <li key={row.discipline}>
                 <Link
                   to={`/content?discipline=${row.discipline}`}
-                  className="block rounded-lg px-1 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="block min-h-11 rounded-lg px-1 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <div className="flex items-center justify-between gap-3 text-xs">
                     <span className="font-medium">{disciplineLabel(row.discipline)}</span>

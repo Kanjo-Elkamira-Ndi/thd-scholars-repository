@@ -9,7 +9,7 @@ thd-scholars-repository/
 │   │   ├── src/
 │   │   │   ├── auth/                # framework-free initData verifier/signer + constant-time compare
 │   │   │   ├── config/              # env loading, constants
-│   │   │   ├── controllers/         # thin HTTP handlers, one file per resource (me, registrations, roster)
+│   │   │   ├── controllers/         # thin HTTP handlers, one file per resource (me, registrations, roster, dashboard, ...)
 │   │   │   ├── services/            # business logic (registration, roster, notifications, content, roles)
 │   │   │   ├── repositories/        # raw `pg` query modules, one per table (users, roster, join-requests, audit-logs, settings, ...)
 │   │   │   ├── middleware/          # auth (initData verify), RBAC guard, internal token, registration rate limit, error handler
@@ -22,7 +22,8 @@ thd-scholars-repository/
 │   │   │   │   ├── migrations/      # 0001_init_users_roster.sql ... 0011_jobs_notifications.sql (sequential, never edited after merge)
 │   │   │   │   ├── seeds/           # dev-only seed data (dev-users.ts fixtures, seed-users.ts runner)
 │   │   │   │   ├── testing/         # test-DB harness: test-database.ts (create/migrate/reset), global-setup.ts, fixtures.ts
-│   │   │   │   ├── migrate.ts       # migration runner (tracks applied files in schema_migrations)│   │   │   │   ├── transaction.ts   # Db type + withTransaction(fn) (pool-or-client, commit/rollback)
+│   │   │   │   ├── migrate.ts       # migration runner (tracks applied files in schema_migrations)
+│   │   │   │   ├── transaction.ts   # Db type + withTransaction(fn) (pool-or-client, commit/rollback)
 │   │   │   │   └── pool.ts          # pg Pool instance, single source
 │   │   │   ├── app.ts               # express app assembly (middleware + routes)
 │   │   │   └── server.ts            # entrypoint, listens on PORT
@@ -52,25 +53,31 @@ thd-scholars-repository/
 │       │   ├── components/
 │       │   │   ├── ui/              # shadcn/Radix primitives (button, card, dialog, sheet, tabs,
 │       │   │   │                    # select, badge, skeleton, input, label, form, alert)
-│       │   │   ├── shared/          # AppHeader, BottomNav, PageTransition, StatusPill,
-│       │   │   │                    # ContentDeliveryPill, RosterAuditPill, SearchInput, FilterBar,
-│       │   │   │                    # FilterSelect, ConfirmDialog, LoadMore, ListState,
-│       │   │   │                    # EmptyState, ErrorState, LoadingSkeletons, AccessDenied
+│       │   │   ├── shared/          # AppHeader, BottomNav, PageTransition, StatusPill (exports
+│       │   │   │                    # ContentDeliveryPill + RosterAuditPill), RoleBadge, SearchInput,
+│       │   │   │                    # FilterBar, FilterSelect, StatCard, ActionCard, ActivityRow,
+│       │   │   │                    # ConfirmDialog, LoadMore, ListState, EmptyState, ErrorState,
+│       │   │   │                    # LoadingSkeletons, AccessDenied, UnauthorizedScreen
 │       │   │   └── layout/          # AppShell (chrome), RequireRole (role gate)
 │       │   ├── features/
-│       │   │   ├── home/            # HomeScreen, RoleActions
+│       │   │   ├── home/            # HomeScreen (ProfileCard + dashboard + RoleActions), ProfileCard, RoleActions
+│       │   │   ├── dashboard/       # DashboardScreen (role-variant switch, ['dashboard'] query) +
+│       │   │   │                    # components/{Scholar,Faculty,Registrar,Admin}Dashboard,
+│       │   │   │                    # RecentContentList, labels.ts (audit action/target labels)
+│       │   │   ├── admin/           # AdminHubScreen + AdminUsersScreen, AdminMembersScreen,
+│       │   │   │                    # AdminAuditScreen, AdminSettingsScreen, labels.ts (/admin/* routes)
 │       │   │   ├── registration/    # RegistrationScreen
-│       │   │   ├── roster/          # RosterScreen (Tabs: Scholars / Access review / Audit) +
+│       │   │   ├── roster/          # RosterScreen (Tabs: Scholars / Access review / Audit, ?tab= deep link) +
 │       │   │   │                    # components/RosterFilters, RosterCard, RosterDetailSheet,
 │       │   │   │                    # RosterStatusForm, AccessReviewList, AuditList
 │       │   │   ├── content/         # ContentScreen, ContentComposerScreen, labels, upload-validation +
 │       │   │   │                    # components/ContentFilters, ContentCard, ContentDetailSheet,
 │       │   │   │                    # ContentLinkActions, ContentForm, DriveOrFileField
-│       │   │   └── placeholder/     # PlaceholderScreen for not-yet-wired routes
-│       │   ├── hooks/               # use-me, use-role, use-telegram, use-back-button,
-│       │   │                        # use-roster, use-content
+│       │   │   └── placeholder/     # PlaceholderScreen for not-yet-wired routes (e.g. /requests)
+│       │   ├── hooks/               # use-me, use-role, use-telegram, use-back-button (overlay stack),
+│       │   │                        # use-roster, use-content, use-dashboard, use-admin
 │       │   ├── lib/                 # api client, errors, channel-link, telegram-actions,
-│       │   │                        # query-client, utils
+│       │   │                        # query-client, query-keys, audit-labels, utils
 │       │   ├── router/              # routes.tsx (nav + access source of truth, lazy routes), index.tsx
 │       │   ├── test/                # vitest setup + render helper
 │       │   ├── App.tsx

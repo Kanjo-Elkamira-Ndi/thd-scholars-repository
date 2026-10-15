@@ -29,7 +29,7 @@ The Mini App represents a doctoral theology program — it should feel **credibl
 - Generous but not wasteful whitespace — dense enough to feel efficient for an academic/admin tool, open enough to not feel cramped on a phone screen.
 
 ## Role-aware design
-- Each role (`Scholar`, `Faculty`, `Registrar`, `Admin`) should have a visually distinct but coherent dashboard — not four completely different design languages, but each surfaces only what that role needs, with the Admin view naturally the most information-dense (audit logs, role management, system settings).
+- Each role (`Scholar`, `Faculty`, `Registrar`, `Admin`) should have a visually distinct but coherent dashboard — not four completely different design languages, but each surfaces only what that role needs, with the Admin view naturally the most information-dense (audit logs, role management, system settings). Implemented as the Home screen (`/`) consuming `GET /api/dashboard` — one shared shell with role-specific variants, plus an Admin-only hub at `/admin`.
 - Use a consistent `RoleBadge` component so a user's role is always legible at a glance, especially useful in roster/member-management tables for Registrar and Admin.
 
 ## Component patterns to get right
@@ -46,7 +46,8 @@ Feature screens are assembled from small composites in `apps/miniapp/src/compone
 - **List states:** `ListState` (loading/error/empty/content in one place), `CardSkeleton`/`ScreenSkeleton`, `EmptyState`, `ErrorState`, `LoadMore` (explicit "load more", not infinite scroll).
 - **Confirmation:** `ConfirmDialog` — one deliberate confirm step for destructive actions, with `tone="destructive"` and a `loading` state.
 - **Access:** `AccessDenied` for role/ownership blocks (e.g. a non-owner opening `/content/:id/edit`).
-- **Detail surfaces:** shadcn `Sheet` (bottom side) for roster scholar + content post details; each wires `useBackButton` so Telegram Back closes the sheet instead of navigating away.
+- **Dashboard composites:** `StatCard` (tone/label/value/icon/deep-link), `ActionCard` (Home action tiles), `ActivityRow` (audit item — renders `auditActionLabel` + `shortActor` + `auditTargetTypeLabel` + relative `<time>`), all driven by `lib/audit-labels.ts`.
+- **Detail surfaces:** shadcn `Sheet` (bottom side) for roster scholar + content post details; detail may be opened directly from a deep link (`/content/:id`). `useBackButton` keeps an **overlay stack**: Telegram Back closes the top-most open overlay (sheet, dialog) first and only navigates the router when none are open.
 - **Uploads:** the composer's `DriveOrFileField` (exactly one of file/Drive link) with inline MIME/size errors, a progress bar, and Cancel.
 
 ## Motion guidelines (Framer Motion)

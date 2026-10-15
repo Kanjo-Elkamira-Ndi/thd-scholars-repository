@@ -29,10 +29,6 @@ Submits a registration form. Triggers roster matching and the approve/decline de
 - **Errors:** `400 VALIDATION_ERROR` (bad body, e.g. registration id not matching `settings.registrationIdPattern`), `429 RATE_LIMITED`.
 - **Side effects:** writes/updates a `join_requests` row (`approved`/`declined`) and an `audit_logs` row in one transaction; on approval links the roster row to the user and stamps `users.full_name`/`email`/`telegram_username`. The decision also **enqueues a delivery task** on the same row (`delivery_status = 'pending'`), which the Bot Service later claims and executes (`approveChatJoinRequest`/`declineChatJoinRequest` or a single-use invite link). An open `pending` `chat_join_request` row is updated in place so its `chat_id` is preserved; otherwise a new decided row with `chat_id = null` is created.
 
-### `GET /api/registrations/:id`
-Fetch a single join request (status lookup).
-- **Auth:** owner of the request, or Registrar/Admin.
-
 ## Roster (Registrar + Admin)
 
 ### `GET /api/roster`
@@ -75,7 +71,7 @@ Returns the quarterly-audit view: roster entries whose status no longer matches 
 ### `GET /api/content`
 Searchable/filterable content index of published/non-deleted posts.
 - **Auth:** verified member — Faculty, Registrar, Admin, and Scholars with an `active` roster entry. A Scholar without an active entry gets `403 NOT_VERIFIED`.
-- **Query params:** `discipline`, `format`, `cohortYear`, `search`, `page` (default `1`), `pageSize` (default `20`, max `100`); unknown/`enum`-mismatched values → `400 VALIDATION_ERROR`.
+- **Query params:** `discipline`, `format`, `cohortYear`, `search`, `mine` (`true` — only the caller's own posts, used by the dashboard's "Failed deliveries" / "My posts" deep links), `deliveryStatus` (`pending|processing|posted|failed`), `page` (default `1`), `pageSize` (default `20`, max `100`); unknown/`enum`-mismatched values → `400 VALIDATION_ERROR`.
 - **Response:** `200 { items: ContentPost[], total, page, pageSize }`. `search` is matched with an escaped `ILIKE` (`%`/`_`/`\` treated literally).
 
 ### `GET /api/content/:id`
@@ -135,7 +131,7 @@ Paginated audit log viewer.
 
 ### `GET /api/settings`
 Current system configuration.
-- **Response:** `{ settings: SystemSettings }` — `{ registrationIdPattern: string, availableCohortYears: number[], inviteLinkExpirySeconds: number, maxUploadSizeBytes: number }` (shapes defined in `packages/shared` as `SystemSettings`).
+- **Response:** `{ settings: SystemSettings }` — `{ registrationIdPattern: string, availableCohortYears: number[], inviteLinkExpirySeconds: number, maxUploadSizeBytes: number, maxContentUploadBytes: number }` (shapes defined in `packages/shared` as `SystemSettings`).
 - **Auth:** Admin.
 
 ### `PATCH /api/settings`
@@ -143,9 +139,18 @@ Update system configuration.
 - **Body:** any subset of `SystemSettings`; at least one field required (validated by `settingsUpdateSchema` in `packages/shared`). `registrationIdPattern` must be a valid regular expression.
 - **Auth:** Admin.
 
-### `GET /api/dashboard/stats`
-Summary stats for the Admin dashboard (total scholars, pending requests, recent activity, content count by discipline).
-- **Auth:** Admin.
+## Dashboard (all roles)
+
+### `GET /api/dashboard`
+Role-aware summary for the Home screen. One endpoint serves every role; the **server decides which variant to build from the caller's role stored in the database** — a query/body/header hint is never read, so a forged hint cannot change the payload.
+- **Auth:** any authenticated Telegram user.
+- **Response:** `{ dashboard: DashboardPayload }`, a discriminated union on `role` (shapes in `packages/shared` as `ScholarDashboard | FacultyDashboard | RegistrarDashboard | AdminDashboard`):
+  - **Scholar** — `{ role, roster: RosterEntry | null, recentContent: ContentPost[] }`. `recentContent` is populated **only** while the roster entry is `active` (otherwise `[]`); without a roster entry `roster` is `null` and the Mini App shows the "not linked yet" state.
+  - **Faculty** — `{ role, myContentCount, failedDeliveries, recentContent }` (own posts only; counts exclude soft-deleted rows).
+  - **Registrar** — `{ role, totalScholars, pendingAccessReviews, myPendingAccessReviews, rosterAuditIssues }`. `myPendingAccessReviews` = flagged (`access_review_pending`) records whose last updater is the caller.
+  - **Admin** — `{ role, totalScholars, pendingJoinRequests, pendingAccessReviews, contentByDiscipline: { discipline, count }[], recentActivity }`. `recentActivity` is ≤10 entries trimmed to `{ action, actorUserId, targetType, createdAt }` — `details` is never exposed. `contentByDiscipline` excludes soft-deleted rows.
+- **Shared definitions:** `totalScholars` = roster rows with `status = 'active'`; `pendingJoinRequests` = join requests pending within the last 30 days (identical for registrar and admin surfaces); `pendingAccessReviews` = roster rows with `access_review_pending = true`.
+- **Behaviour:** re-reads the roster/role state per call (no cached role), returns `200 { dashboard }`.
 
 ## Internal endpoints (Bot Service → API only, `X-Internal-Token`)
 

@@ -45,7 +45,7 @@ End-to-end user journeys, mapped to the roles in `project-overview.md` and the e
 **Actor:** Admin (confirming), triggered from Workflow 2's flag
 **Trigger:** a roster status change to `graduated`/`withdrawn` creates a flagged, unconfirmed item.
 
-1. Admin sees the flagged item on their dashboard (`GET /api/dashboard/stats` surfaces a count; a dedicated list view shows the detail).
+1. Admin sees the flagged item on their dashboard (`GET /api/dashboard`'s admin variant surfaces `pendingAccessReviews`; a detail list is at Roster → Access review, `/roster?tab=access-review`).
 2. Admin reviews and confirms removal (or, rarely, overrides — e.g., a brief re-enrollment) via the Mini App.
 3. Confirmed removal calls `POST /api/members/:userId/remove`, enqueues a `member_removals` task, and logs to `audit_logs`. A registrar may confirm only within their permitted boundary (a flagged graduated/withdrawn record, which also clears `access_review_pending`); re-activating a roster entry cancels any pending removal.
 4. The bot's member-removal loop then leases the task (`POST /internal/members/removals/claim`), bans then unbans the user, and confirms (`.../:id/confirm`).
@@ -81,15 +81,16 @@ End-to-end user journeys, mapped to the roles in `project-overview.md` and the e
 **Actor:** Admin
 **Trigger:** a new Faculty member needs posting access, a Scholar is promoted to Registrar, etc.
 
-1. Admin opens Mini App → Users → selects a user.
+1. Admin opens Mini App → Admin hub → Users (`/admin/users`) → selects a user.
 2. Admin changes role via `PATCH /api/users/:id/role`. The API refuses a self-change and refuses to demote the last remaining admin (row-locked, concurrency-safe).
 3. API logs the change to `audit_logs` and enqueues a `role_changed` notification **inside the same transaction** as the role change (so a rolled-back change enqueues nothing). The bot delivers it on its next tick (FR26).
+4. On success the Mini App invalidates `['dashboard']`, the users list, and the audit-log list (role changes surface immediately on Home, in the role table, and in the audit feed).
 
 ## 8. Admin Reviews Audit Logs — implemented (Phase 10)
 **Actor:** Admin
 **Trigger:** routine oversight, or investigating a specific concern.
 
-1. Admin opens Mini App → Audit Logs, backed by `GET /api/audit-logs`, filterable by action/actor/target type.
+1. Admin opens Mini App → Admin hub → Audit logs (`/admin/audit`, Admin-only route), backed by `GET /api/audit-logs`, filterable by action/actor/target type.
 2. This view is read-only — the table is append-only and enforced by a database trigger that rejects `UPDATE`/`DELETE` (see `security.md`).
 
 ## 9. Repeated Registration Failure (Abuse/Error Signal) — implemented (Phase 11)
@@ -108,6 +109,16 @@ End-to-end user journeys, mapped to the roles in `project-overview.md` and the e
 2. The `notifications` row is written in the action's transaction where correctness demands it (`role_changed`), otherwise right after commit (`repeated_registration_failure`).
 3. The bot's notification loop leases pending rows (`POST /internal/notifications/claim`), renders the HTML template (role names are whitelisted; all interpolations are escaped), DMs the user, and confirms (`.../:id/confirm`).
 4. A transient failure is retried with exponential backoff up to `NOTIFICATION_MAX_ATTEMPTS`. A **terminal** failure (bot blocked, chat not found, user deactivated) fails immediately and is logged at `warn` with only the role and user id — no PII. Because the bot can only DM users who have started it, deploy docs require every Admin and Registrar to press **Start** once.
+
+## 11. Home Dashboard (role-aware) — implemented (Phase 15)
+**Actor:** any authenticated user, on open of the Mini App
+**Trigger:** Home (`/`) mounting, or a query invalidation.
+
+1. The Home screen calls `GET /api/dashboard` (`useDashboard`, key `['dashboard']`, 30s staleTime). The **server** picks the variant from the role stored in the database on every call — no role hint is sent from the client, and roster state is re-read so a status change is reflected without re-login.
+2. The returned variant decides the layout: Scholar (roster standing + recent content), Faculty (post counts + recent own posts), Registrar (access-review metrics + roster-audit counts), Admin (metrics + discipline distribution + activity feed). Shared definitions (`totalScholars`, content counts, pending join requests) are computed identically on both sides (see `api-reference.md`).
+3. `recentActivity` is already trimmed server-side to `{ action, actorUserId, targetType, createdAt }`; the Mini App renders `shortActor`/`auditActionLabel`/`auditTargetTypeLabel` and never touches `details`.
+4. **Invalidation matrix** (always invalidate, never optimistic): after a successful role change, member removal, roster status change, content create/edit/delete, or settings update the Mini App refetches `['dashboard']` (plus the relevant domain keys) so Home never shows a stale count.
+5. Admin's hub lives at `/admin` with deep routes `/admin/users`, `/admin/members`, `/admin/audit`, `/admin/settings` — all gated `['admin']` in the route table **and** by a server-side role check.
 
 ## FR26 / FR27 coverage note
 - **FR27** (repeated registration failure → alert staff): Workflow 9 (`repeated_registration_failure`).

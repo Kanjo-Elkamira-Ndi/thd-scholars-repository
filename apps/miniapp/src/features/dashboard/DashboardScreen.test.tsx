@@ -141,6 +141,10 @@ describe('DashboardScreen', () => {
     renderWithProviders(<DashboardScreen />);
 
     expect(await screen.findByText('My posts')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /my posts/i })).toHaveAttribute(
+      'href',
+      '/content?mine=true',
+    );
     expect(screen.getByRole('link', { name: /failed deliveries/i })).toHaveAttribute(
       'href',
       '/content?mine=true&deliveryStatus=failed',
@@ -170,10 +174,17 @@ describe('DashboardScreen', () => {
     renderWithProviders(<DashboardScreen />);
 
     expect(await screen.findByText('Content created')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /systematic theology/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /active scholars/i })).toHaveAttribute(
       'href',
-      '/content?discipline=SystematicTheology',
+      '/roster',
     );
+    expect(screen.getByRole('link', { name: /pending access reviews/i })).toHaveAttribute(
+      'href',
+      '/roster?tab=access-review',
+    );
+    const disciplineLink = screen.getByRole('link', { name: /systematic theology/i });
+    expect(disciplineLink).toHaveAttribute('href', '/content?discipline=SystematicTheology');
+    expect(disciplineLink).toHaveClass('min-h-11');
     expect(screen.queryByText(/do-not-render/)).not.toBeInTheDocument();
   });
 
