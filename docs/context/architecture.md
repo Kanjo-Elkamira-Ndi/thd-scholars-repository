@@ -47,11 +47,11 @@ The single source of truth. Owns the database, enforces RBAC, exposes a REST API
 ### 2. Bot Service (`apps/bot`)
 A Telegraf-based process that:
 - Handles `/start` and onboarding prompts.
-- Listens for `chat_join_request` events and calls the API to decide approve/decline.
+- Listens for `chat_join_request` events and records them via the API (`POST /internal/join-requests`); the **API** later decides approve/decline when a matching registration is verified, and the bot executes the decision via the delivery outbox loop.
 - Calls Telegram's `approveChatJoinRequest` / `declineChatJoinRequest`.
 - Posts formatted content messages to the channel on behalf of Faculty (triggered by the API after a Mini App submission).
 - Sends notifications (approval, decline, role change, etc.).
-- Runs a **membership-sync loop** (default every 15 min, throttled to ~20 `getChatMember` calls/sec) that asks the API for a bounded set of known `telegram_id`s to re-check and pushes the observed snapshot back (`PUT /internal/members/snapshot`). The Telegram Bot API cannot enumerate chat members, so the API cannot refresh membership on its own.
+- Runs a **membership-sync loop** (default every 15 min, throttled to ~20 `getChatMember` calls/sec) that asks the API for the full set of known `telegram_id`s to re-check and pushes the observed snapshot back (`PUT /internal/members/snapshot`). The Telegram Bot API cannot enumerate chat members, so the API cannot refresh membership on its own.
 - Runs a **member-removal loop** that leases queued removals and performs `banChatMember` → `unbanChatMember({ only_if_banned: true })` (a "user not in chat" error counts as success), then confirms the outcome.
 - Runs a **notification delivery loop (Phase 11)** that leases `notifications` rows, DMs the recipient, and confirms — the same outbound-only, leased-outbox pattern as join requests and content.
 
@@ -100,8 +100,8 @@ The API runs a small in-process scheduler (`apps/api/src/jobs/`, `node-cron`) fo
 Two independent implementations of "is this user allowed to do X" is how RBAC bugs happen. The API is the only place authorization decisions are made; both the bot and the Mini App are callers, not deciders. See `security.md`.
 
 ## Deployment shape
-- API: single Node process (can be containerized), webhook-mode-compatible.
-- Bot: can run in the same process as the API or as a separate process — recommendation is **separate process**, communicating with the API over HTTP (or an internal queue later if volume demands it), so a bot crash doesn't take the API down and vice versa.
+- API: single Node process (can be containerized) behind an HTTPS reverse proxy.
+- Bot: **separate process** from the API, communicating with the API over HTTP, so a bot crash doesn't take the API down and vice versa (the two are not designed to co-run in one process — the Bot boots its own Telegraf instance and env).
 - Mini App: static build served over HTTPS (required by Telegram for Mini Apps), can be hosted on the same server or a static host (e.g., Vercel, Netlify, or your existing deployment pattern).
 - Database: managed Postgres instance or self-hosted, reachable only from the API service.
 

@@ -3,7 +3,7 @@
 ## Language & tooling baseline
 - TypeScript everywhere (`api`, `bot`, `miniapp`, `packages/shared`). `strict: true` in every `tsconfig.json`.
 - Node.js LTS for `api` and `bot`.
-- ESLint + Prettier, shared base config at the workspace root, extended per app only where genuinely needed (e.g., React-specific rules in `miniapp`).
+- ESLint + Prettier, one shared flat config at the workspace root (`eslint.config.mjs`) — includes a React-hooks override scoped to `apps/miniapp`, and `eslint-config-prettier` to disable formatting rules.
 - No `any` without a comment explaining why it's unavoidable (e.g., a third-party type gap). Prefer `unknown` + narrowing over `any`.
 
 ## Naming conventions
@@ -19,7 +19,7 @@
 - **Services** contain business logic, orchestrate one or more repositories, never import `express` types.
 - **Repositories** are the only place raw SQL lives. One file per table. Every exported function takes/returns typed objects, not raw `pg` row shapes (map `snake_case` → `camelCase` here).
 - Every mutating service method that should be audited writes to `audit_logs` within the same database transaction as its primary write — use a transaction wrapper utility rather than two sequential un-transacted calls.
-- Errors are thrown as typed `AppError` instances (`code`, `message`, `httpStatus`) and caught by a single central error-handling middleware — controllers do not individually format error responses.
+- Errors are thrown as typed `AppError` instances (`code`, `message`, `status`) and caught by a single central error-handling middleware — controllers do not individually format error responses.
 
 ## Bot (`bot`) conventions
 - Handlers stay thin: parse the Telegram event, call the API (or an internal service wrapper), send the resulting message. No roster/RBAC logic duplicated here — the API already decided; the bot executes Telegram-side actions and reports back.

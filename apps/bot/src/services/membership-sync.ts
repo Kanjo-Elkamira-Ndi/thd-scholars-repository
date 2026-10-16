@@ -54,7 +54,7 @@ export const syncMembershipOnce = async (deps: MembershipSyncDeps): Promise<void
         continue;
       }
       deps.logger.warn(
-        { err, telegramId: target.telegramId },
+        { err, userId: target.userId },
         'membership getChatMember failed; skipping user',
       );
     }

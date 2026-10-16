@@ -84,7 +84,7 @@ End-to-end user journeys, mapped to the roles in `project-overview.md` and the e
 1. Admin opens Mini App → Admin hub → Users (`/admin/users`) → selects a user.
 2. Admin changes role via `PATCH /api/users/:id/role`. The API refuses a self-change and refuses to demote the last remaining admin (row-locked, concurrency-safe).
 3. API logs the change to `audit_logs` and enqueues a `role_changed` notification **inside the same transaction** as the role change (so a rolled-back change enqueues nothing). The bot delivers it on its next tick (FR26).
-4. On success the Mini App invalidates `['dashboard']`, the users list, and the audit-log list (role changes surface immediately on Home, in the role table, and in the audit feed).
+4. On success the Mini App invalidates `['dashboard']`, the users list, and the members list (role changes surface immediately on Home, in the role table, and in the members screen). The audit viewer is **not** invalidated by this mutation — its feed refreshes on its own mount/query staleness, not off the role change.
 
 ## 8. Admin Reviews Audit Logs — implemented (Phase 10)
 **Actor:** Admin

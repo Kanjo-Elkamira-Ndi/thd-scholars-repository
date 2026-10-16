@@ -1,7 +1,7 @@
 import type { RosterEntry } from '@thd/shared';
 import { updateRoster } from '@/lib/api';
 import { renderWithProviders } from '@/test/render';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RosterStatusForm } from './RosterStatusForm';
@@ -47,9 +47,11 @@ describe('RosterStatusForm', () => {
 
     await user.click(screen.getByRole('button', { name: 'Flag for review' }));
 
-    expect(updateRoster).toHaveBeenCalledWith(
-      'r1',
-      expect.objectContaining({ status: 'graduated', cohortYear: 2024 }),
+    await waitFor(() =>
+      expect(updateRoster).toHaveBeenCalledWith(
+        'r1',
+        expect.objectContaining({ status: 'graduated', cohortYear: 2024 }),
+      ),
     );
   });
 

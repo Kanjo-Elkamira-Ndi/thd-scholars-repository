@@ -1,6 +1,6 @@
 # File Structure
 
-This project is a **monorepo** using npm/pnpm workspaces. Three deployable apps (`api`, `bot`, `miniapp`) share a `packages/shared` library for types, constants, and validation schemas, so the three never drift out of sync on what a "role" or a "registration payload" looks like.
+This project is a **monorepo** using npm workspaces. Three deployable apps (`api`, `bot`, `miniapp`) share a `packages/shared` library for types, constants, and validation schemas, so the three never drift out of sync on what a "role" or a "registration payload" looks like.
 
 ```
 thd-scholars-repository/
@@ -14,7 +14,6 @@ thd-scholars-repository/
 │   │   │   ├── repositories/        # raw `pg` query modules, one per table (users, roster, join-requests, audit-logs, settings, ...)
 │   │   │   ├── middleware/          # auth (initData verify), RBAC guard, internal token, registration rate limit, error handler
 │   │   │   ├── routes/              # express routers, one per resource, mounted in app.ts
-│   │   │   ├── validators/          # zod schemas for request bodies (imports from packages/shared where shared)
 │   │   │   ├── types/               # API-only types
 │   │   │   ├── utils/               # pure helper functions
 │   │   │   ├── jobs/                # node-cron scheduler + runJob runtime (quarterly audit, access-review reminder)
@@ -27,10 +26,7 @@ thd-scholars-repository/
 │   │   │   │   └── pool.ts          # pg Pool instance, single source
 │   │   │   ├── app.ts               # express app assembly (middleware + routes)
 │   │   │   └── server.ts            # entrypoint, listens on PORT
-│   │   ├── scripts/                 # tsx dev scripts (make-init-data.ts signs dev initData)
-│   │   ├── tests/
-│   │   │   ├── unit/
-│   │   │   └── integration/
+│   │   ├── scripts/                 # tsx dev scripts (copy-migrations, make-init-data, run-job)
 │   │   ├── .env.example
 │   │   ├── tsconfig.json
 │   │   └── package.json
@@ -42,6 +38,8 @@ thd-scholars-repository/
 │   │   │   ├── templates/           # message template builders (approval, decline, content post, notification)
 │   │   │   ├── services/            # thin wrappers calling the API service (delivery, content, member removal, notifications)
 │   │   │   ├── middleware/          # logging, error handling
+│   │   │   ├── config/              # env loading (zod-validated, webhook mode gated on NODE_ENV)
+│   │   │   ├── utils/               # logger (pino + token scrubbing), telegram-error helpers
 │   │   │   ├── bot.ts               # Telegraf instance assembly
 │   │   │   └── index.ts             # entrypoint (polling in dev, webhook in prod)
 │   │   ├── .env.example
@@ -51,8 +49,9 @@ thd-scholars-repository/
 │   └── miniapp/
 │       ├── src/
 │       │   ├── components/
-│       │   │   ├── ui/              # shadcn/Radix primitives (button, card, dialog, sheet, tabs,
-│       │   │   │                    # select, badge, skeleton, input, label, form, alert)
+│       │   ├── ui/              # shadcn/Radix primitives (button, card, dialog, sheet, tabs,
+│       │   │                    # select, badge, skeleton, input, label, form, alert,
+│       │   │                    # checkbox, separator)
 │       │   │   ├── shared/          # AppHeader, BottomNav, PageTransition, StatusPill (exports
 │       │   │   │                    # ContentDeliveryPill + RosterAuditPill), RoleBadge, SearchInput,
 │       │   │   │                    # FilterBar, FilterSelect, StatCard, ActionCard, ActivityRow,
@@ -66,7 +65,8 @@ thd-scholars-repository/
 │       │   │   │                    # RecentContentList, labels.ts (audit action/target labels)
 │       │   │   ├── admin/           # AdminHubScreen + AdminUsersScreen, AdminMembersScreen,
 │       │   │   │                    # AdminAuditScreen, AdminSettingsScreen, labels.ts (/admin/* routes)
-│       │   │   ├── registration/    # RegistrationScreen
+│       │   ├── registration/    # RegistrationScreen + components/RegistrationForm, RegistrationResult,
+│       │   │                    # AlreadyRegisteredCard, SuccessMark, contact.ts (registrar contact)
 │       │   │   ├── roster/          # RosterScreen (Tabs: Scholars / Access review / Audit, ?tab= deep link) +
 │       │   │   │                    # components/RosterFilters, RosterCard, RosterDetailSheet,
 │       │   │   │                    # RosterStatusForm, AccessReviewList, AuditList
@@ -96,6 +96,7 @@ thd-scholars-repository/
 ├── packages/
 │   └── shared/
 │       ├── src/
+│       │   ├── index.ts             # barrel re-exporting types, constants, schemas
 │       │   ├── types/               # Role, UserStatus, ContentFormat, etc.
 │       │   ├── constants/           # discipline tags, format tags, regex patterns
 │       │   └── schemas/             # zod schemas used by both api validators and miniapp forms

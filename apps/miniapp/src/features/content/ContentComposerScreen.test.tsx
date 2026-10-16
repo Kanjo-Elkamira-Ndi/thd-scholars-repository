@@ -3,7 +3,7 @@ import type { ContentPost, UserStatusResponse } from '@thd/shared';
 import { createContent, getContentPost, getMe, uploadContent } from '@/lib/api';
 import { ApiError } from '@/lib/errors';
 import { createTestQueryClient } from '@/test/render';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -93,11 +93,13 @@ describe('ContentComposerScreen', () => {
     await user.type(screen.getByLabelText('Drive link'), 'https://drive.google.com/file/d/abc');
     await user.click(screen.getByRole('button', { name: /publish post/i }));
 
-    expect(vi.mocked(createContent)).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: 'New lecture',
-        driveLink: 'https://drive.google.com/file/d/abc',
-      }),
+    await waitFor(() =>
+      expect(vi.mocked(createContent)).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'New lecture',
+          driveLink: 'https://drive.google.com/file/d/abc',
+        }),
+      ),
     );
   });
 

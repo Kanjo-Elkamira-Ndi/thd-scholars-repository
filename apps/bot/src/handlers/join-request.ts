@@ -29,13 +29,13 @@ export const handleChatJoinRequest = async (
       joinRequestedAt: new Date(request.date * 1000).toISOString(),
     });
   } catch (err) {
-    logger.warn({ err, telegramId: from.id }, 'failed to record join request');
+    logger.warn({ err }, 'failed to record join request');
     return;
   }
 
   const userChatId = request.user_chat_id;
   if (typeof userChatId !== 'number') {
-    logger.warn({ telegramId: from.id }, 'join request has no user_chat_id; pending DM skipped');
+    logger.warn({}, 'join request has no user_chat_id; pending DM skipped');
     return;
   }
 
@@ -44,6 +44,6 @@ export const handleChatJoinRequest = async (
       reply_markup: joinRequestPendingKeyboard(miniAppUrl),
     });
   } catch (err) {
-    logger.warn({ err, telegramId: from.id }, 'Failed to send join request pending DM');
+    logger.warn({ err }, 'Failed to send join request pending DM');
   }
 };

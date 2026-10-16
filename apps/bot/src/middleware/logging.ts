@@ -8,7 +8,6 @@ export const loggingMiddleware = async (ctx: Context, next: () => Promise<void>)
     {
       updateId: ctx.update?.update_id,
       updateType: ctx.updateType,
-      telegramId: ctx.from?.id,
       durationMs: Date.now() - startedAt,
     },
     'update handled',

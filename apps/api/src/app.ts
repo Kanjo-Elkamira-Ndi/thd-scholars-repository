@@ -17,6 +17,16 @@ import rosterRoutes from './routes/roster-routes';
 
 const app = express();
 
+/* Behind a reverse proxy (nginx / pm2) the proxy IP must be trusted, otherwise
+   every client shares the proxy's IP for rate limiting and logs. Set
+   TRUST_PROXY to the number of proxy hops in front of the API (0 = none). */
+app.set('trust proxy', env.TRUST_PROXY);
+
+app.use((req, _res, next) => {
+  req.id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  next();
+});
+
 app.use(helmet());
 app.use(
   cors({
@@ -35,11 +45,6 @@ app.use(
     legacyHeaders: false,
   }),
 );
-
-app.use((req, _res, next) => {
-  req.id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  next();
-});
 
 app.use('/api', healthRoutes);
 

@@ -64,7 +64,7 @@ Fetch a single roster entry (used by the Mini App's scholar detail sheet). `:id`
 Returns the quarterly-audit view: roster entries whose status no longer matches actual channel membership.
 - **Auth:** Registrar, Admin.
 - **Response:** `200 { issues: RosterAuditEntry[] }` — each `RosterAuditEntry` carries `{ roster: { id, userId, registrationId, status, cohortYear }, membership: ChannelMembership | null, issue: 'active_not_member' | 'inactive_still_member' | 'membership_unknown' }` (enum source: `RosterAuditIssue`).
-- **Behaviour:** computed by the same shared `computeRosterAudit()` used by the quarterly audit job, so the API view and the scheduled notification can never disagree. The function is pure with respect to request context (no user/role/`req` dependency).
+- **Behaviour:** computed by `computeRosterAudit()` in `apps/api/src/services/roster-audit.service.ts` — the same API-layer function the quarterly audit job calls, so the API view and the scheduled notification can never disagree. The function is pure with respect to request context (no user/role/`req` dependency).
 
 ## Content (Faculty + Admin)
 
@@ -110,7 +110,7 @@ Live channel membership, for cross-referencing against the roster.
 ### `POST /api/members/:userId/remove`
 Remove a member from the channel.
 - **Auth:** Admin (and Registrar, only when acting on a flagged graduated/withdrawn record — see `security.md` for the exact boundary).
-- **Side effects:** calls Telegram API to kick, writes `audit_logs` row.
+- **Side effects:** inserts a `member_removals` outbox row (the Bot Service performs the actual `banChatMember`/`unbanChatMember` on its next removal tick — the API never calls Telegram directly), revokes any still-active invite links for the user, and — when a new row was created — writes an `audit_logs` row, clears `access_review_pending` (Registrar path), and enqueues a `member_removal_requested` notification. Re-requesting an already-pending removal is an idempotent no-op (`created: false`, no duplicate audit/notification).
 
 ## Roles & System Configuration (Admin only)
 
@@ -168,7 +168,7 @@ Record a channel `chat_join_request` as an open `pending` request.
 Lease up to `limit` decided-but-undelivered tasks for the Bot Service outbox loop.
 - **Body:** `{ limit?: number }` (1–100, optional; defaults to the configured batch size).
 - **Response:** `200 { items: JoinRequestDeliveryTask[], inviteLinkExpirySeconds: number }` — each item carries `{ id, decision, reason, telegramId, chatId, fullName, attempts }`.
-- **Behaviour:** first reclaims stale leases (`processing` older than `JOIN_REQUEST_DELIVERY_LEASE_SECONDS`), then leases claimable rows (`status <> 'pending' AND delivery_status = 'pending' AND next_attempt_at <= now()`), marking them `processing` and incrementing `delivery_attempts`. A row is never leased twice concurrently.
+- **Behaviour:** first reclaims stale leases (`processing` older than `JOIN_REQUEST_DELIVERY_LEASE_SECONDS`), then leases claimable rows (`status <> 'pending' AND delivery_status = 'pending' AND (next_attempt_at IS NULL OR next_attempt_at <= now())`), marking them `processing` and incrementing `delivery_attempts`. A row is never leased twice concurrently.
 
 ### `POST /internal/join-requests/:id/complete`
 Bot reports the outcome of a leased task; API finalizes the `join_requests` row.
@@ -185,22 +185,22 @@ Read a user's verification status for the Bot Service (`/mystatus`). Read-only.
 - **Errors:** `400 VALIDATION_ERROR`, `404 NOT_FOUND` (unknown user).
 
 ### `GET /internal/members/reconcile-targets`
-List users whose channel membership should be re-checked (Bot Service membership-sync loop). Read-only.
+List every user whose channel membership should be re-checked (Bot Service membership-sync loop). Read-only.
 - **Auth:** `X-Internal-Token`.
-- **Response:** `200 { targets: { userId, telegramId }[] }` — pending/open join requests plus roster entries whose membership is stale; capped at a bounded batch.
-- **Behaviour:** the Telegram Bot API cannot enumerate chat members, so the API can only ask the bot to check a known set of `telegram_id`s one at a time.
+- **Response:** `200 { targets: { userId, telegramId }[] }` — currently **all** users (ordered by `created_at`); there is no filter or cap.
+- **Behaviour:** the Telegram Bot API cannot enumerate chat members, so the API can only ask the bot to check a known set of `telegram_id`s one at a time (throttled by the bot's `BOT_MEMBERSHIP_SYNC_RATE_PER_SEC`). The loop is a full sweep each run, which also covers users who joined since the previous sweep.
 
 ### `PUT /internal/members/snapshot`
 Persist the bot's freshly observed membership for a batch of users.
 - **Body:** `{ members: { telegramId, isMember, memberStatus }[] }` (`membershipSnapshotSchema`; `memberStatus` is the raw Telegram status string).
 - **Response:** `200 { updated: number }`.
-- **Behaviour:** upserts each `channel_membership` row (`telegram_id`, `is_member`, `member_status`, `checked_at`). Unknown `telegram_id`s are ignored. The snapshot is authoritative for `GET /api/members` and `GET /api/roster/audit`.
+- **Behaviour:** upserts each `channel_membership` row keyed by the resolved `user_id` (`is_member`, `member_status`, `checked_at`; the table has no `telegram_id` column). Unknown `telegram_id`s are ignored. The snapshot is authoritative for `GET /api/members` and `GET /api/roster/audit`.
 
 ### `POST /internal/members/removals/claim`
 Lease up to `limit` member-removal tasks for the Bot Service removal loop.
 - **Body:** `{ limit?: number }` (1–`MEMBER_REMOVAL_MAX_BATCH`, optional).
 - **Response:** `200 { items: MemberRemovalTask[] }` — each item carries `{ id, userId, telegramId, attempts }`.
-- **Behaviour:** first reclaims stale leases (`processing` older than `MEMBER_REMOVAL_LEASE_SECONDS`), then leases claimable rows, marking them `processing` and incrementing `attempts`. A task whose roster row is no longer graduated/withdrawn is skipped (cancelled).
+- **Behaviour:** first reclaims stale leases (`processing` older than `MEMBER_REMOVAL_LEASE_SECONDS`), then leases claimable rows (`status = 'pending' AND (next_attempt_at IS NULL OR next_attempt_at <= now()) AND (initiated_by_role = 'admin' OR the roster row is still graduated/withdrawn)`), marking them `processing` and incrementing `attempts`. A registrar-initiated task whose roster row has returned to `active` is simply **not claimable** — it is cancelled separately when the roster status changes back (`cancelPendingRemovalsForUser`), not at claim time.
 
 ### `POST /internal/members/removals/:id/confirm`
 Bot reports the outcome of a leased removal; API finalizes the `member_removals` row.
@@ -231,16 +231,16 @@ Stream the staged bytes for a file-routed post so the bot can upload them to Tel
 Lease up to `limit` pending notifications for the Bot Service delivery loop.
 - **Body:** `{ limit?: number }` (1–100, optional; defaults to `NOTIFICATION_BATCH_SIZE`).
 - **Response:** `200 { items: NotificationTask[] }` — each item carries `{ id, userId, telegramId, event, payload, attempts, recipientRole }`.
-- **Behaviour:** first reclaims stale leases (`processing` older than `NOTIFICATION_LEASE_SECONDS`), then leases claimable rows (`status = 'pending' AND next_attempt_at <= now()`) with `FOR UPDATE SKIP LOCKED`, marking them `processing` and incrementing `attempts`. Only recipients that still have a `telegram_id` are leased. A row is never leased twice concurrently.
+- **Behaviour:** first reclaims stale leases (`processing` older than `NOTIFICATION_LEASE_SECONDS`), then leases claimable rows (`status = 'pending' AND (next_attempt_at IS NULL OR next_attempt_at <= now())`) with `FOR UPDATE SKIP LOCKED`, marking them `processing` and incrementing `attempts`. Only recipients that still have a `telegram_id` are leased. A row is never leased twice concurrently. `recipientRole` is derived from the recipient's current role in `users` at claim time (the `notifications` table has no role column).
 
 ### `POST /internal/notifications/:id/confirm`
 Bot reports the outcome of a leased notification; the API finalizes the `notifications` row.
 - **Path param:** `id` must be a UUID (else `400 VALIDATION_ERROR`); unknown → `404 NOT_FOUND`.
 - **Body:** `{ outcome: 'sent' | 'failed', error?, terminal? }` (`notificationConfirmSchema`).
 - **Response:** `200 { status: NotificationStatus }`.
-- **Behaviour:** `sent` marks the row sent. `failed` reschedules with exponential backoff, or — when `terminal = true` (bot blocked, chat not found, user deactivated) or `attempts` reaches `NOTIFICATION_MAX_ATTEMPTS` — marks the row failed. Terminal delivery failures are logged at `warn` with only the recipient role and user id (no PII). Idempotent: repeating on an already-terminal row is a 200 no-op.
+- **Behaviour:** `sent` marks the row sent. `failed` reschedules with exponential backoff, or — when `terminal = true` (bot blocked, chat not found, user deactivated) or `attempts` reaches `NOTIFICATION_MAX_ATTEMPTS` — marks the row failed. Terminal delivery failures are logged at `warn` with ids only (`notificationId`, `event`, `attempts`) — no PII. Idempotent: repeating on an already-terminal row is a 200 no-op.
 
 ## Conventions
-- All list endpoints are paginated by default (`page`, `pageSize`, default `pageSize=20`, max `100`).
+- List endpoints are paginated with `page`/`pageSize` (max `100`). Defaults vary by endpoint: `pageSize=20` for roster and content, `pageSize=50` for audit logs.
 - All mutating endpoints that touch `roster`, `users.role`, `content_posts`, or membership write an `audit_logs` row in the same transaction as the primary write — never as an afterthought call.
 - Validation schemas live in `packages/shared/src/schemas` and are imported by both the API validators and the Mini App forms, so a rule change happens in one place.

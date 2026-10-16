@@ -51,4 +51,4 @@ This is **Phase 2** of the project. Phase 1 (manual Google Form + admin-approval
 ## Current status
 - Telegram channel: **created**.
 - Phase 1 (manual Google Form registration): **implemented**.
-- Phase 2 (bot + Mini App): **in specification/early build**, this context pack is the foundation for that build.
+- Phase 2 (bot + Mini App): **implemented** (Phases 1–15 delivered the full bot service, Mini App, and API).

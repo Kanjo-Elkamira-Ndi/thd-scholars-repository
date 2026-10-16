@@ -11,6 +11,7 @@ const EnvSchema = z
     DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
     API_INTERNAL_TOKEN: z.string().min(1, 'API_INTERNAL_TOKEN is required'),
     MINIAPP_ORIGIN: z.string().url().min(1, 'MINIAPP_ORIGIN is required'),
+    TRUST_PROXY: z.coerce.number().int().min(0).max(10).default(0),
     BOT_TOKEN: z.string().min(1, 'BOT_TOKEN is required'),
     TELEGRAM_AUTH_MAX_AGE_SECONDS: z.coerce.number().int().positive().default(86400),
     AUTH_MOCK_ENABLED: z

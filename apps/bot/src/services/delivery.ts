@@ -37,7 +37,7 @@ const sendDm = async (
   try {
     await telegram.sendMessage(telegramUserId, text);
   } catch (err) {
-    logger.warn({ err, telegramId: telegramUserId }, 'join-request DM failed (non-fatal)');
+    logger.warn({ err }, 'join-request DM failed (non-fatal)');
   }
 };
 

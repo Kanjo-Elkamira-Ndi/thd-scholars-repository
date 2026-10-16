@@ -80,7 +80,7 @@ Single-use, time-limited invite links issued per approved request.
 | `link` | `text` | unique, not null |
 | `created_for_user_id` | `uuid` FK → `users.id` | not null |
 | `expires_at` | `timestamptz` | not null |
-| `used` | `boolean` | default `false` |
+| `used` | `boolean` | not null, default `false` |
 | `revoked_at` | `timestamptz` | nullable — set by migration `0010` when a link is revoked on member removal |
 | `created_at` | `timestamptz` | default `now()` |
 
@@ -129,16 +129,16 @@ Append-only. Every privileged action writes a row here.
 Migration `0010` adds a trigger (`audit_logs` append-only guard) that rejects `UPDATE`/`DELETE` on this table — rows are immutable once written.
 
 ### `channel_membership`
-Authoritative, bot-observed channel membership (migration `0010`). The Telegram Bot API cannot enumerate chat members, so this table is populated by the membership-sync loop asking about known `telegram_id`s.
+Authoritative, bot-observed channel membership (migration `0010`). The Telegram Bot API cannot enumerate chat members, so this table is populated by the membership-sync loop asking about known `telegram_id`s (looked up against `users` to resolve the `user_id`).
 
 | Column | Type | Notes |
 |---|---|---|
-| `user_id` | `uuid` PK, FK → `users.id` | one live row per user |
-| `telegram_id` | `bigint` | not null — Telegram user id |
-| `is_member` | `boolean` | not null — derived from `member_status` |
-| `member_status` | `text` | not null — raw Telegram status (`member`, `administrator`, `creator`, `left`, `kicked`, …) |
-| `checked_at` | `timestamptz` | not null — when the bot last observed this |
-| `updated_at` | `timestamptz` | default `now()` |
+| `user_id` | `uuid` PK, FK → `users.id` (on delete cascade) | one live row per user |
+| `is_member` | `boolean` | not null — the bot's verdict (status ∈ member/administrator/creator) |
+| `member_status` | `text` | nullable — raw Telegram status (`member`, `administrator`, `creator`, `left`, `kicked`, …) |
+| `checked_at` | `timestamptz` | not null, default `now()` — when the bot last observed this |
+
+There is no `telegram_id` or `updated_at` column — the row is keyed by `user_id` and re-stamped by upsert on each snapshot.
 
 ### `member_removals`
 Outbox for channel removals initiated by admins or the roster audit (migration `0010`).
@@ -147,16 +147,17 @@ Outbox for channel removals initiated by admins or the roster audit (migration `
 |---|---|---|
 | `id` | `uuid` PK | |
 | `user_id` | `uuid` FK → `users.id` | not null |
-| `telegram_id` | `bigint` | not null |
-| `initiated_by` | `uuid` FK → `users.id` | nullable — null for system/roster-initiated |
+| `requested_by` | `uuid` FK → `users.id` | nullable — the actor who requested the removal |
+| `initiated_by_role` | `text` | not null — `'admin'` or `'registrar'` (CHECK) |
 | `reason` | `text` | nullable |
-| `status` | `text` | not null, default `'pending'` — `pending` / `processing` / `done` / `failed` / `cancelled` |
-| `attempts` | `integer` | not null, default `0` |
+| `status` | `text` | not null, default `'pending'` — `pending` / `processing` / `done` / `failed` / `cancelled` (CHECK) |
+| `delivery_attempts` | `integer` | not null, default `0` |
 | `next_attempt_at` | `timestamptz` | nullable — backoff gate |
 | `claimed_at` | `timestamptz` | nullable — lease timestamp |
 | `last_error` | `text` | nullable |
-| `completed_at` | `timestamptz` | nullable |
-| `created_at` | `timestamptz` | default `now()` |
+| `created_at` | `timestamptz` | not null, default `now()` |
+| `updated_at` | `timestamptz` | not null, default `now()` |
+| `processed_at` | `timestamptz` | nullable — set on terminal (`done`/`failed`/`cancelled`) |
 
 A partial unique index enforces at most one open (`pending`/`processing`) removal per user; a partial queue index drives the claim/backoff loop.
 
@@ -166,20 +167,19 @@ Outbox for user-directed DMs (migration `0011`). The API writes rows; the Bot Se
 | Column | Type | Notes |
 |---|---|---|
 | `id` | `uuid` PK | |
-| `recipient_user_id` | `uuid` FK → `users.id` | not null |
-| `recipient_role` | `text` | not null — role snapshot at enqueue time |
-| `event` | `text` | not null — `'role_changed' \| 'member_removal_requested' \| 'audit_flagged' \| 'access_review_reminder' \| 'repeated_registration_failure'` |
+| `recipient_user_id` | `uuid` FK → `users.id` (on delete cascade) | not null |
+| `event` | `text` | not null, CHECK — `'role_changed' \| 'member_removal_requested' \| 'audit_flagged' \| 'access_review_reminder' \| 'repeated_registration_failure'` |
 | `payload` | `jsonb` | not null, default `'{}'` — template inputs (e.g. `{ from, to }`, `{ total }`) |
 | `dedupe_key` | `text` | not null — event identity; a random uuid for events that must not be deduped |
 | `status` | `text` | not null, default `'pending'` — `'pending' \| 'processing' \| 'sent' \| 'failed'` |
 | `attempts` | `integer` | not null, default `0` |
 | `next_attempt_at` | `timestamptz` | nullable — backoff gate |
 | `claimed_at` | `timestamptz` | nullable — lease timestamp |
-| `last_error` | `text` | nullable |
 | `sent_at` | `timestamptz` | nullable |
-| `created_at` | `timestamptz` | default `now()` |
+| `last_error` | `text` | nullable |
+| `created_at` | `timestamptz` | not null, default `now()` |
 
-A **unique index on `(recipient_user_id, dedupe_key)`** guarantees at most one delivery per recipient per event (not dedupe_key alone — a single event legitimately fans out to several admins/registrars). Partial `notifications_queue` and `notifications_processing` indexes drive the claim/backoff loop. `dedupe_key` is never null.
+There is no `recipient_role` column — the claim query derives `recipientRole` from the recipient's current role in `users`. A **unique index on `(recipient_user_id, dedupe_key)`** guarantees at most one delivery per recipient per event (not dedupe_key alone — a single event legitimately fans out to several admins/registrars). Partial `notifications_queue` and `notifications_processing` indexes drive the claim/backoff loop. `dedupe_key` is never null.
 
 ### `job_runs`
 One row per scheduled job attempt, giving crash-safe exactly-once semantics per `(job, run_key)`.
@@ -189,11 +189,11 @@ One row per scheduled job attempt, giving crash-safe exactly-once semantics per 
 | `id` | `uuid` PK | |
 | `job` | `text` | not null — `'quarterly_audit' \| 'access_review_reminder'` |
 | `run_key` | `text` | not null — e.g. `2026-Q1`, `2026-W05` |
-| `status` | `text` | not null, default `'started'` — `'started' \| 'completed' \| 'failed'` |
-| `started_at` | `timestamptz` | default `now()` |
-| `completed_at` | `timestamptz` | nullable |
-| `error` | `text` | nullable |
-| `created_at` | `timestamptz` | default `now()` |
+| `status` | `text` | not null, default `'started'` — `'started' \| 'completed' \| 'failed'` (CHECK) |
+| `details` | `jsonb` | nullable — run metadata (e.g. `{ runKey }`) |
+| `last_error` | `text` | nullable |
+| `started_at` | `timestamptz` | not null, default `now()` |
+| `finished_at` | `timestamptz` | nullable |
 
 Unique `(job, run_key)`. A run is retaken **atomically** via `INSERT ... ON CONFLICT (job, run_key) DO UPDATE ... WHERE <claimable> RETURNING id` where claimable = `status = 'failed'` OR (`status = 'started'` AND `started_at < now() - JOB_RUN_STALE_MINUTES`). A completed run is never rerun. The quarterly job records `audit_logs.target_id = job_runs.id` (target type `jobs`) with the run key in `details.runKey`.
 

@@ -15,6 +15,36 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      # @thd/shared is consumed from its dist/ (no path aliases), so it must be
+      # built before typecheck/tests import it.
+      - run: npm run build:shared
       - run: npm run lint
       - run: npm run typecheck
+      - run: npm run test
       - run: npm run build
+
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build:shared
+      - run: npm run test:integration --workspace=@thd/api
+        env:
+          # The harness requires a *_test database name and drops/recreates it per run.
+          TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/thd_scholars_ci_test

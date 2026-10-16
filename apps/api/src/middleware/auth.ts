@@ -35,8 +35,8 @@ export const authUser = async (req: Request, _res: Response, next: NextFunction)
         const { id, username, firstName, lastName } = parsed.data;
         const fullName =
           [firstName, lastName].filter(Boolean).join(' ').trim() || `Mock user ${id}`;
-        logger.warn({ telegramId: id }, 'MOCK AUTH used');
         req.user = await upsertByTelegram({ telegramId: id, username: username ?? null, fullName });
+        logger.warn({ userId: req.user.id }, 'MOCK AUTH used');
         next();
         return;
       }
